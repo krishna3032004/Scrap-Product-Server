@@ -1,6 +1,6 @@
 import express from 'express';
-// import chromium from 'chrome-aws-lambda';
-// import puppeteer from 'puppeteer-core';
+import chromium from 'chrome-aws-lambda';
+import puppeteer from 'puppeteer-core';
 // import puppeteer from 'puppeteer';
 
 
@@ -32,10 +32,13 @@ const PORT = process.env.PORT || 4000;
 
 
 async function getBrowser() {
-  const puppeteerFull = await import('puppeteer');
-  return puppeteerFull.default.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  // const puppeteerFull = await import('puppeteer');
+  return puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath:
+      process.env.AWS_EXECUTION_ENV ? await chromium.executablePath : '/usr/bin/google-chrome',
+    headless: chromium.headless,
   });
 }
 async function scrapeAmazon(url) {
