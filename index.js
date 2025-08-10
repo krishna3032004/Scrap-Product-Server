@@ -32,12 +32,23 @@ const PORT = process.env.PORT || 4000;
 
 
 async function getBrowser() {
-  // const puppeteerFull = await import('puppeteer');
+  let executablePath = await chromium.executablePath;
+
+  // Agar Render environment me hai to chromium ka path use karo
+  // Agar local pe run ho raha to puppeteer ka default path
+  if (!executablePath) {
+    const puppeteerFull = await import('puppeteer');
+    return puppeteerFull.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  }
+
+  // Render/Serverless launch
   return puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
-    executablePath:
-      process.env.AWS_EXECUTION_ENV ? await chromium.executablePath : '/usr/bin/google-chrome',
+    executablePath,
     headless: chromium.headless,
   });
 }
