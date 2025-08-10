@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 4000;
 
 async function getBrowser() {
   if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
+    console.log("ha abh btao chl rha kya")
     // Production (serverless)
     return puppeteer.launch({
       args: chromium.args,
