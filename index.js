@@ -8,28 +8,36 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 // const PORT = process.env.PORT || 4000;
 
-async function getBrowser() {
-  // if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
-  //   console.log("ha abh btao chl rha kya")
-  //   // Production (serverless)
-  //   return puppeteer.launch({
-  //     args: chromium.args,
-  //     defaultViewport: chromium.defaultViewport,
-  //     executablePath: await chromium.executablePath,
-  //     headless: chromium.headless,
-  //   });
-  if (process.env.RENDER) {
-    // Use full puppeteer with its bundled Chromium
-    const puppeteerFull = await import('puppeteer');
-    return puppeteerFull.default.launch({ headless: true, args: ['--no-sandbox'] });
-  } else {
-    // Local development
-    // console.log(url)
-    const puppeteerLocal = await import('puppeteer');
-    return puppeteerLocal.default.launch({ headless: true });
-  }
-}
+// async function getBrowser() {
+//   // if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
+//   //   console.log("ha abh btao chl rha kya")
+//   //   // Production (serverless)
+//   //   return puppeteer.launch({
+//   //     args: chromium.args,
+//   //     defaultViewport: chromium.defaultViewport,
+//   //     executablePath: await chromium.executablePath,
+//   //     headless: chromium.headless,
+//   //   });
+//   if (process.env.RENDER) {
+//     // Use full puppeteer with its bundled Chromium
+//     const puppeteerFull = await import('puppeteer');
+//     return puppeteerFull.default.launch({ headless: true, args: ['--no-sandbox'] });
+//   } else {
+//     // Local development
+//     // console.log(url)
+//     const puppeteerLocal = await import('puppeteer');
+//     return puppeteerLocal.default.launch({ headless: true });
+//   }
+// }
 
+
+async function getBrowser() {
+  const puppeteerFull = await import('puppeteer');
+  return puppeteerFull.default.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+}
 async function scrapeAmazon(url) {
   let browser;
   try {
