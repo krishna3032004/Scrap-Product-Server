@@ -1,6 +1,6 @@
 import express from 'express';
-import chromium from 'chrome-aws-lambda';
-import puppeteer from 'puppeteer-core';
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
 // import puppeteer from 'puppeteer';
 
 
@@ -32,26 +32,16 @@ const PORT = process.env.PORT || 4000;
 
 
 async function getBrowser() {
-  let executablePath = await chromium.executablePath;
-
-  // Agar Render environment me hai to chromium ka path use karo
-  // Agar local pe run ho raha to puppeteer ka default path
-  if (!executablePath) {
-    const puppeteerFull = await import('puppeteer');
-    return puppeteerFull.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-  }
-
-  // Render/Serverless launch
-  return puppeteer.launch({
+  return await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
-    executablePath,
-    headless: chromium.headless,
+    executablePath: await chromium.executablePath(), // ✅ Chrome ka correct path
+    headless: chromium.headless, // ✅ Lambda-safe headless
   });
 }
+
+
+
 async function scrapeAmazon(url) {
   let browser;
   try {
@@ -92,7 +82,7 @@ async function scrapeAmazon(url) {
       time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
       platform: "flipkart",
       productLink: url,
-      amazonLink: "",   
+      amazonLink: "",
       priceHistory: [
         { price: result.price, date: new Date().toLocaleDateString('en-CA') },
       ],
@@ -137,7 +127,7 @@ async function scrapeFlipkart(url) {
       time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
       platform: "flipkart",
       productLink: url,
-      amazonLink: "",   
+      amazonLink: "",
       priceHistory: [
         { price: result.price, date: new Date().toLocaleDateString('en-CA') },
       ],
