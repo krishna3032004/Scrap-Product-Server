@@ -40,6 +40,20 @@ async function getBrowser() {
   });
 }
 
+// Retry helper
+async function safeGoto(page, url, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      page.setDefaultNavigationTimeout(0);
+      page.setDefaultTimeout(0);
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
+      return;
+    } catch (err) {
+      console.log(`Retry ${i + 1} failed: ${err.message}`);
+      if (i === retries - 1) throw err;
+    }
+  }
+}
 
 
 async function scrapeAmazon(url) {
@@ -50,8 +64,11 @@ async function scrapeAmazon(url) {
     browser = await getBrowser();
     console.log(url)
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
-    await page.waitForSelector('#productTitle');
+    await safeGoto(page, url);
+    // await page.goto(url, { waitUntil: 'networkidle2' });
+    
+    await page.waitForSelector('#productTitle', { timeout: 0 });
+    // await page.waitForSelector('#productTitle');
     const result = await page.evaluate(() => {
       const getText = (sel) => document.querySelector(sel)?.innerText.trim() || null;
       const getAttr = (sel, attr) => document.querySelector(sel)?.getAttribute(attr) || null;
@@ -99,8 +116,12 @@ async function scrapeFlipkart(url) {
   try {
     browser = await getBrowser();
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
-    await page.waitForSelector('span.VU-ZEz');
+    
+    await safeGoto(page, url);
+
+    await page.waitForSelector('span.VU-ZEz', { timeout: 0 });
+    // await page.goto(url, { waitUntil: 'networkidle2' });
+    // await page.waitForSelector('span.VU-ZEz');
     const result = await page.evaluate(() => {
       const title = document.querySelector('span.VU-ZEz')?.innerText.trim() || null;
       const image = document.querySelector('img.DByuf4')?.src || null;
