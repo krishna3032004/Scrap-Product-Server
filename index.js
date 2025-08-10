@@ -1,6 +1,6 @@
 import express from 'express';
-import chromium from 'chrome-aws-lambda';
-import puppeteer from 'puppeteer-core';
+// import chromium from 'chrome-aws-lambda';
+// import puppeteer from 'puppeteer-core';
 // import puppeteer from 'puppeteer';
 
 
@@ -9,15 +9,19 @@ const PORT = process.env.PORT || 4000;
 // const PORT = process.env.PORT || 4000;
 
 async function getBrowser() {
-  if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
-    console.log("ha abh btao chl rha kya")
-    // Production (serverless)
-    return puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
-      headless: chromium.headless,
-    });
+  // if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
+  //   console.log("ha abh btao chl rha kya")
+  //   // Production (serverless)
+  //   return puppeteer.launch({
+  //     args: chromium.args,
+  //     defaultViewport: chromium.defaultViewport,
+  //     executablePath: await chromium.executablePath,
+  //     headless: chromium.headless,
+  //   });
+  if (process.env.RENDER) {
+    // Use full puppeteer with its bundled Chromium
+    const puppeteerFull = await import('puppeteer');
+    return puppeteerFull.default.launch({ headless: true, args: ['--no-sandbox'] });
   } else {
     // Local development
     // console.log(url)
