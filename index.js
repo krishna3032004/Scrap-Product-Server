@@ -418,6 +418,7 @@ app.post('/api/scrape-prices', async (req, res) => {
 
   const results = [];
   let browser;
+  let page;
 
   try {
     browser = await getBrowser();
@@ -480,7 +481,7 @@ app.post('/api/scrape-prices', async (req, res) => {
     console.error("Scraping error:", err);
     res.status(500).json({ error: "Failed to scrape URLs" });
     
-    if (browser) await page.close();
+    // if (browser) await page.close();
   } 
 });
 
