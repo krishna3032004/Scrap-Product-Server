@@ -1,6 +1,6 @@
 import express from 'express';
 import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
+import puppeteer from "puppeteer";
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import puppeteerExtra from 'puppeteer-extra';
 
@@ -393,6 +393,88 @@ app.get('/scrape', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+app.use(express.json());
+app.post('/api/scrape-prices', async (req, res) => {
+  const { urls } = req.body;
+  console.log("run huakya")
+
+  if (!urls || !Array.isArray(urls)) {
+    return res.status(400).json({ error: "URLs array is required" });
+  }
+
+  const results = [];
+  let browser;
+
+  try {
+    // browser = await getBrowser();
+
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+
+    for (const item of urls) {
+      const url = item.productLink;
+      try {
+
+        const page = await browser.newPage();
+        // await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+        if (!url) {
+          results.push({ url: null, price: null });
+          continue;
+        }
+        let price = null;
+
+        if (url.includes("amazon")) {
+          console.log(url)
+          await safeGotoforamazon(page, url)
+          price = await page
+            .$eval(
+              "#priceblock_ourprice, #priceblock_dealprice, .a-price .a-offscreen",
+              el => el.innerText
+            )
+            .catch(() => null);
+          console.log(price)
+        } else if (url.includes("flipkart")) {
+          console.log(url)
+          await safeGoto(page, url)
+          price = await page
+            .$eval(".Nx9bqj", el => el.innerText)
+            .catch(() => null);
+          console.log(price)
+        }
+
+        if (price) {
+          price = parseInt(price.replace(/[₹,]/g, ""));
+        }
+
+        results.push({ url, price: price || null });
+
+        await page.close();
+      } catch (err) {
+        console.error(`Error scraping ${url}:`, err);
+        results.push({ url, price: null });
+      }
+    }
+    console.log(results)
+
+    res.json({ results });
+  } catch (err) {
+    console.error("Scraping error:", err);
+    res.status(500).json({ error: "Failed to scrape URLs" });
+  } finally {
+    if (browser) await browser.close();
+  }
+});
+
+// const PORT = process.env.PORT || 4000;
+// app.listen(PORT, () => {
+//   console.log(`Scraping server running on port ${PORT}`);
+// });
 
 app.listen(PORT, () => {
   console.log(`Scraping server running on port ${PORT}`);
