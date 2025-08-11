@@ -116,7 +116,7 @@ async function blockExtraResources(page) {
     'googletagmanager.com', 'google-analytics.com', 'doubleclick.net',
     'ads.yahoo.com', 'bat.bing.com', 'amazon-adsystem.com'
   ];
-  
+
   await page.setRequestInterception(true);
   page.on('request', req => {
     const url = req.url().toLowerCase();
@@ -131,20 +131,20 @@ async function blockExtraResources(page) {
   });
 }
 
-let page;
+// let page;
 
-async function getPage() {
-  if (!browser) browser = await getBrowser();
-  if (!page || page.isClosed()) {
-    page = await browser.newPage();
-    await blockExtraResources(page);
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
-    );
-    await page.setViewport({ width: 1366, height: 768 });
-  }
-  return page;
-}
+// async function getPage() {
+//   if (!browser) browser = await getBrowser();
+//   if (!page || page.isClosed()) {
+//     page = await browser.newPage();
+//     await blockExtraResources(page);
+//     await page.setUserAgent(
+//       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+//     );
+//     await page.setViewport({ width: 1366, height: 768 });
+//   }
+//   return page;
+// }
 
 
 async function scrapeAmazon(url) {
@@ -154,17 +154,17 @@ async function scrapeAmazon(url) {
 
     browser = await getBrowser();
     console.log(url)
-    // const page = await browser.newPage();
+    const page = await browser.newPage();
 
-    // await blockExtraResources(page);
-    // await page.setUserAgent(
-    //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
-    // );
-    // await page.setViewport({ width: 1366, height: 768 });
-    
+    await blockExtraResources(page);
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
 
-    
-    const page = await getPage();
+
+
+    // const page = await getPage();
     await safeGoto(page, url);
     // await safeGoto(page, url);
 
@@ -172,7 +172,7 @@ async function scrapeAmazon(url) {
     // await page.goto(url, { waitUntil: 'networkidle2' });
 
     // try {
-      await page.waitForSelector('#productTitle', { timeout: 0 });
+    await page.waitForSelector('#productTitle', { timeout: 0 });
     // } catch {
     //   console.log("Title not found in time, trying alternative selector...");
     // }
@@ -225,21 +225,21 @@ async function scrapeFlipkart(url) {
   let browser;
   try {
     browser = await getBrowser();
-    // const page = await browser.newPage();
+    const page = await browser.newPage();
 
-    // await blockExtraResources(page);
-    // await page.setUserAgent(
-    //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
-    // );
-    // await page.setViewport({ width: 1366, height: 768 });
-    
+    await blockExtraResources(page);
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
 
-    
-    const page = await getPage();
+
+
+    // const page = await getPage();
     await safeGoto(page, url);
     // await safeGoto(page, url);
 
-    
+
     await page.waitForSelector('span.VU-ZEz', { timeout: 0 });
     // await page.goto(url, { waitUntil: 'networkidle2' });
     // await page.waitForSelector('span.VU-ZEz');
