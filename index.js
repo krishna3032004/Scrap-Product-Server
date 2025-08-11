@@ -418,7 +418,7 @@ app.post('/api/scrape-prices', async (req, res) => {
 
   const results = [];
   let browser;
-  let page;
+  // let page;
 
   try {
     browser = await getBrowser();
@@ -475,7 +475,7 @@ app.post('/api/scrape-prices', async (req, res) => {
     }
     console.log(results)
 
-    await page.close();
+    // await page.close();
     res.json({ results });
   } catch (err) {
     console.error("Scraping error:", err);
