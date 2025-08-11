@@ -104,8 +104,8 @@ async function safeGotoforamazon(page, url, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
-        waitUntil: "networkidle2",
-        timeout: 30000
+        waitUntil: "networkidle0", // jyada stable hota hai
+        timeout: 60000 // timeout double kar diya
       });
       return;
     } catch (err) {
@@ -224,7 +224,12 @@ async function scrapeAmazon(url) {
     }
 
     try {
-      await page.waitForSelector('#productTitle', { timeout: 0 });
+      // await page.waitForSelector('#productTitle', { timeout: 0 });
+      await page.waitForFunction(() => {
+        return document.querySelector('#productTitle') ||
+          document.querySelector('#titleSection') ||
+          document.querySelector('h1');
+      }, { timeout: 30000 });
     } catch {
       console.log("Title not found in time, trying alternative selector...");
     }
