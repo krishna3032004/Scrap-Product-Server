@@ -104,14 +104,45 @@ async function safeGoto(page, url, retries = 2) {
 
 async function blockExtraResources(page) {
   await page.setRequestInterception(true);
-  page.on('request', (req) => {
-    const blocked = ['image', 'stylesheet', 'font', 'media'];
-    if (blocked.includes(req.resourceType())) {
+  page.on("request", (req) => {
+    const blocked = [
+      "image",
+      "stylesheet",
+      "font",
+      "media",
+      "websocket",
+      "manifest"
+    ];
+    const blockedDomains = [
+      "google-analytics.com",
+      "adsense",
+      "doubleclick.net",
+      "amazon-adsystem.com",
+      "flipkart.net"
+    ];
+
+    if (
+      blocked.includes(req.resourceType()) ||
+      blockedDomains.some(domain => req.url().includes(domain))
+    ) {
       req.abort();
     } else {
       req.continue();
     }
   });
+  // page.on('request', (req) => {
+  //   const blocked = ['image', 'stylesheet', 'font', 'media'];
+  //   if (blocked.includes(req.resourceType())) {
+  //     req.abort();
+  //   } else {
+  //     req.continue();
+  //   }
+  // });
+
+
+
+
+
   // const blockedDomains = [
   //   'googletagmanager.com', 'google-analytics.com', 'doubleclick.net',
   //   'ads.yahoo.com', 'bat.bing.com', 'amazon-adsystem.com'
@@ -179,7 +210,7 @@ async function scrapeAmazon(url) {
     }
 
     try {
-    await page.waitForSelector('#productTitle', { timeout: 15000 });
+      await page.waitForSelector('#productTitle', { timeout: 15000 });
     } catch {
       console.log("Title not found in time, trying alternative selector...");
     }
