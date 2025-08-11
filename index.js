@@ -66,7 +66,7 @@ async function scrapeAmazon(url) {
     const page = await browser.newPage();
     // await safeGoto(page, url);
 
-    await page.goto(url, { waitUntil: "domcontentloaded",timeout: 15000  });
+    await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
 
     await page.waitForSelector('#productTitle', { timeout: 0 });
