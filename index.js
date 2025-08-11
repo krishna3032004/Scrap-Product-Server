@@ -133,7 +133,6 @@ async function blockExtraResources(page) {
   await page.setRequestInterception(true);
   page.on("request", (req) => {
     const blocked = [
-      "image",
       "stylesheet",
       "font",
       "media",
