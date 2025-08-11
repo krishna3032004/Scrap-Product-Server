@@ -1,6 +1,11 @@
 import express from 'express';
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import puppeteerExtra from 'puppeteer-extra';
+
+
+puppeteerExtra.use(StealthPlugin());
 // import puppeteer from 'puppeteer';
 
 
@@ -44,7 +49,7 @@ let browser;
 
 async function getBrowser() {
   if (!browser) {
-    browser = await puppeteer.launch({
+    browser = await puppeteerExtra.launch({
       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
@@ -53,6 +58,18 @@ async function getBrowser() {
   }
   return browser;
 }
+
+// async function getBrowser() {
+//   if (!browser) {
+//     browser = await puppeteer.launch({
+//       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+//       defaultViewport: chromium.defaultViewport,
+//       executablePath: await chromium.executablePath(),
+//       headless: chromium.headless,
+//     });
+//   }
+//   return browser;
+// }
 
 // Retry helper
 // async function safeGoto(page, url, retries = 3) {
@@ -73,8 +90,8 @@ async function safeGoto(page, url, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
-        waitUntil: "domcontentloaded", // jaldi load hoga
-        timeout: 15000 // 15 sec ka hard limit
+        waitUntil: "domcontentloaded",
+        timeout: 20000
       });
       return;
     } catch (err) {
@@ -88,7 +105,7 @@ async function safeGoto(page, url, retries = 2) {
 async function blockExtraResources(page) {
   await page.setRequestInterception(true);
   page.on('request', (req) => {
-    const blocked = ['image', 'stylesheet', 'font'];
+    const blocked = ['image', 'stylesheet', 'font', 'media'];
     if (blocked.includes(req.resourceType())) {
       req.abort();
     } else {
@@ -108,13 +125,23 @@ async function scrapeAmazon(url) {
     const page = await browser.newPage();
 
     await blockExtraResources(page);
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
+    
     await safeGoto(page, url);
     // await safeGoto(page, url);
 
     // await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
 
-    await page.waitForSelector('#productTitle', { timeout: 10000 });
+    try {
+      await page.waitForSelector('#productTitle', { timeout: 12000 });
+    } catch {
+      console.log("Title not found in time, trying alternative selector...");
+    }
+    // await page.waitForSelector('#productTitle', { timeout: 10000 });
     // await page.waitForSelector('#productTitle');
     const result = await page.evaluate(() => {
       const getText = (sel) => document.querySelector(sel)?.innerText.trim() || null;
@@ -166,9 +193,15 @@ async function scrapeFlipkart(url) {
     const page = await browser.newPage();
 
     await blockExtraResources(page);
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
+    
     await safeGoto(page, url);
     // await safeGoto(page, url);
 
+    
     await page.waitForSelector('span.VU-ZEz', { timeout: 0 });
     // await page.goto(url, { waitUntil: 'networkidle2' });
     // await page.waitForSelector('span.VU-ZEz');
