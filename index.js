@@ -170,7 +170,7 @@ async function scrapeAmazon(url) {
 
     // await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
-    await page.waitForTimeout(2000);
+    await new Promise(r => setTimeout(r, 2000));
 
     // Check if captcha/bot block
     const pageContent = await page.content();
@@ -244,6 +244,7 @@ async function scrapeFlipkart(url) {
 
     // const page = await getPage();
     await safeGoto(page, url);
+    await new Promise(r => setTimeout(r, 2000));
     // await safeGoto(page, url);
 
 
