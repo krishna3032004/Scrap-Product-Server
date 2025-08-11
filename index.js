@@ -100,6 +100,20 @@ async function safeGoto(page, url, retries = 2) {
     }
   }
 }
+async function safeGotoforamazon(page, url, retries = 2) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await page.goto(url, {
+        waitUntil: "networkidle2",
+        timeout: 30000
+      });
+      return;
+    } catch (err) {
+      console.log(`Retry ${i + 1} failed: ${err.message}`);
+      if (i === retries - 1) throw err;
+    }
+  }
+}
 
 
 async function blockExtraResources(page) {
@@ -196,7 +210,7 @@ async function scrapeAmazon(url) {
 
 
     // const page = await getPage();
-    await safeGoto(page, url);
+    await safeGotoforamazon(page, url);
     // await safeGoto(page, url);
 
     // await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
@@ -210,7 +224,7 @@ async function scrapeAmazon(url) {
     }
 
     try {
-      await page.waitForSelector('#productTitle', { timeout: 15000 });
+      await page.waitForSelector('#productTitle', { timeout: 0 });
     } catch {
       console.log("Title not found in time, trying alternative selector...");
     }
