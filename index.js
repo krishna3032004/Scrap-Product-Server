@@ -408,12 +408,12 @@ app.post('/api/scrape-prices', async (req, res) => {
   let browser;
 
   try {
-    // browser = await getBrowser();
+    browser = await getBrowser();
 
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    // browser = await puppeteer.launch({
+    //   headless: true,
+    //   args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    // });
 
 
     for (const item of urls) {
