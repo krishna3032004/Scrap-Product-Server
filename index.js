@@ -217,42 +217,66 @@ async function scrapeAmazon(url) {
     // await page.waitForSelector('#productTitle', { timeout: 10000 });
     // await page.waitForSelector('#productTitle');
     const result = await page.evaluate(() => {
-      const getText = (sel) => document.querySelector(sel)?.innerText.trim() || null;
-      const getAttr = (sel, attr) => document.querySelector(sel)?.getAttribute(attr) || null;
+      const getText = (selector) => document.querySelector(selector)?.innerText.trim() || null;
+      const getAttr = (selector, attr) => document.querySelector(selector)?.getAttribute(attr) || null;
 
       const title = getText('#productTitle');
+
       const priceWhole = getText('.a-price-whole')?.replace(/[^\d]/g, '');
       const currentPrice = priceWhole ? parseInt(priceWhole) : null;
+
       const mrpText = document.querySelector('.a-text-price .a-offscreen')?.innerText || '';
       const mrp = mrpText ? parseInt(mrpText.replace(/[^\d]/g, '')) : null;
+
       const discountText = getText('.savingsPercentage');
       const discountMatch = discountText?.match(/\d+/);
       const discount = discountMatch ? parseInt(discountMatch[0]) : null;
+
       const image = getAttr('#landingImage', 'src');
 
       return { title, currentPrice, mrp, discount, image };
     });
+
     // await browser.close();
     await page.close();
     return {
       title: result.title,
       image: result.image,
-      currentPrice: result.price,
+      currentPrice: result.currentPrice,
       mrp: result.mrp,
-      lowest: result.price,
-      highest: result.price,
-      average: result.price,
+      lowest: result.currentPrice,
+      highest: result.currentPrice,
+      average: result.currentPrice,
       discount: result.discount,
       rating: 4,
       time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-      platform: "flipkart",
+      platform: "amazon",
       productLink: url,
-      amazonLink: "",
+      amazonLink: url,
       priceHistory: [
-        { price: result.price, date: new Date().toLocaleDateString('en-CA') },
+        { price: result.currentPrice, date: new Date().toLocaleDateString('en-CA') },
       ],
       predictionText: "Prediction data not available yet.",
-    };;
+    };
+    // return {
+    //   title: result.title,
+    //   image: result.image,
+    //   currentPrice: result.price,
+    //   mrp: result.mrp,
+    //   lowest: result.price,
+    //   highest: result.price,
+    //   average: result.price,
+    //   discount: result.discount,
+    //   rating: 4,
+    //   time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+    //   platform: "flipkart",
+    //   productLink: url,
+    //   amazonLink: "",
+    //   priceHistory: [
+    //     { price: result.price, date: new Date().toLocaleDateString('en-CA') },
+    //   ],
+    //   predictionText: "Prediction data not available yet.",
+    // };;
   } catch (err) {
     if (browser) await browser.close();
     throw err;
