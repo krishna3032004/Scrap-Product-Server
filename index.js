@@ -103,15 +103,47 @@ async function safeGoto(page, url, retries = 2) {
 
 
 async function blockExtraResources(page) {
+  // await page.setRequestInterception(true);
+  // page.on('request', (req) => {
+  //   const blocked = ['image', 'stylesheet', 'font', 'media'];
+  //   if (blocked.includes(req.resourceType())) {
+  //     req.abort();
+  //   } else {
+  //     req.continue();
+  //   }
+  // });
+  const blockedDomains = [
+    'googletagmanager.com', 'google-analytics.com', 'doubleclick.net',
+    'ads.yahoo.com', 'bat.bing.com', 'amazon-adsystem.com'
+  ];
+  
   await page.setRequestInterception(true);
-  page.on('request', (req) => {
-    const blocked = ['image', 'stylesheet', 'font', 'media'];
-    if (blocked.includes(req.resourceType())) {
+  page.on('request', req => {
+    const url = req.url().toLowerCase();
+    if (
+      ['image', 'stylesheet', 'font', 'media', 'other'].includes(req.resourceType()) ||
+      blockedDomains.some(domain => url.includes(domain))
+    ) {
       req.abort();
     } else {
       req.continue();
     }
   });
+}
+
+let page;
+
+async function getPage() {
+  if (!browser) browser = await getBrowser();
+  if (!page || page.isClosed()) {
+    page = await browser.newPage();
+    await blockExtraResources(page);
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
+  }
+  return page;
 }
 
 
@@ -122,14 +154,17 @@ async function scrapeAmazon(url) {
 
     browser = await getBrowser();
     console.log(url)
-    const page = await browser.newPage();
+    // const page = await browser.newPage();
 
-    await blockExtraResources(page);
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
-    );
-    await page.setViewport({ width: 1366, height: 768 });
+    // await blockExtraResources(page);
+    // await page.setUserAgent(
+    //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    // );
+    // await page.setViewport({ width: 1366, height: 768 });
     
+
+    
+    const page = await getPage();
     await safeGoto(page, url);
     // await safeGoto(page, url);
 
@@ -190,14 +225,17 @@ async function scrapeFlipkart(url) {
   let browser;
   try {
     browser = await getBrowser();
-    const page = await browser.newPage();
+    // const page = await browser.newPage();
 
-    await blockExtraResources(page);
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
-    );
-    await page.setViewport({ width: 1366, height: 768 });
+    // await blockExtraResources(page);
+    // await page.setUserAgent(
+    //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    // );
+    // await page.setViewport({ width: 1366, height: 768 });
     
+
+    
+    const page = await getPage();
     await safeGoto(page, url);
     // await safeGoto(page, url);
 
