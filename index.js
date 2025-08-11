@@ -64,9 +64,11 @@ async function scrapeAmazon(url) {
     browser = await getBrowser();
     console.log(url)
     const page = await browser.newPage();
-    await safeGoto(page, url);
+    // await safeGoto(page, url);
+
+    await page.goto(url, { waitUntil: "domcontentloaded",timeout: 15000  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
-    
+
     await page.waitForSelector('#productTitle', { timeout: 0 });
     // await page.waitForSelector('#productTitle');
     const result = await page.evaluate(() => {
@@ -116,7 +118,7 @@ async function scrapeFlipkart(url) {
   try {
     browser = await getBrowser();
     const page = await browser.newPage();
-    
+
     await safeGoto(page, url);
 
     await page.waitForSelector('span.VU-ZEz', { timeout: 0 });
