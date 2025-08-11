@@ -87,8 +87,9 @@ async function safeGoto(page, url, retries = 2) {
 
 async function blockExtraResources(page) {
   await page.setRequestInterception(true);
-  page.on("request", (req) => {
-    if (["image", "stylesheet", "font", "media"].includes(req.resourceType())) {
+  page.on('request', (req) => {
+    const blocked = ['image', 'stylesheet', 'font'];
+    if (blocked.includes(req.resourceType())) {
       req.abort();
     } else {
       req.continue();
@@ -113,7 +114,7 @@ async function scrapeAmazon(url) {
     // await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
 
-    await page.waitForSelector('#productTitle', { timeout: 0 });
+    await page.waitForSelector('#productTitle', { timeout: 10000 });
     // await page.waitForSelector('#productTitle');
     const result = await page.evaluate(() => {
       const getText = (sel) => document.querySelector(sel)?.innerText.trim() || null;
