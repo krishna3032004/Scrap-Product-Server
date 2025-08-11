@@ -170,9 +170,16 @@ async function scrapeAmazon(url) {
 
     // await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
+    await page.waitForTimeout(2000);
+
+    // Check if captcha/bot block
+    const pageContent = await page.content();
+    if (pageContent.includes("Type the characters you see in this image")) {
+      throw new Error("Amazon captcha triggered. Scraper blocked.");
+    }
 
     try {
-    await page.waitForSelector('#productTitle', { timeout: 0 });
+    await page.waitForSelector('#productTitle', { timeout: 15000 });
     } catch {
       console.log("Title not found in time, trying alternative selector...");
     }
