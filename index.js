@@ -103,32 +103,32 @@ async function safeGoto(page, url, retries = 2) {
 
 
 async function blockExtraResources(page) {
-  // await page.setRequestInterception(true);
-  // page.on('request', (req) => {
-  //   const blocked = ['image', 'stylesheet', 'font', 'media'];
-  //   if (blocked.includes(req.resourceType())) {
-  //     req.abort();
-  //   } else {
-  //     req.continue();
-  //   }
-  // });
-  const blockedDomains = [
-    'googletagmanager.com', 'google-analytics.com', 'doubleclick.net',
-    'ads.yahoo.com', 'bat.bing.com', 'amazon-adsystem.com'
-  ];
-
   await page.setRequestInterception(true);
-  page.on('request', req => {
-    const url = req.url().toLowerCase();
-    if (
-      ['image', 'stylesheet', 'font', 'media', 'other'].includes(req.resourceType()) ||
-      blockedDomains.some(domain => url.includes(domain))
-    ) {
+  page.on('request', (req) => {
+    const blocked = ['image', 'stylesheet', 'font', 'media'];
+    if (blocked.includes(req.resourceType())) {
       req.abort();
     } else {
       req.continue();
     }
   });
+  // const blockedDomains = [
+  //   'googletagmanager.com', 'google-analytics.com', 'doubleclick.net',
+  //   'ads.yahoo.com', 'bat.bing.com', 'amazon-adsystem.com'
+  // ];
+
+  // await page.setRequestInterception(true);
+  // page.on('request', req => {
+  //   const url = req.url().toLowerCase();
+  //   if (
+  //     ['image', 'stylesheet', 'font', 'media', 'other'].includes(req.resourceType()) ||
+  //     blockedDomains.some(domain => url.includes(domain))
+  //   ) {
+  //     req.abort();
+  //   } else {
+  //     req.continue();
+  //   }
+  // });
 }
 
 // let page;
