@@ -100,17 +100,30 @@ async function safeGoto(page, url, retries = 2) {
     }
   }
 }
-async function safeGotoforamazon(page, url, retries = 2) {
+async function safeGotoforamazon(page, url, retries = 3) {
+  // for (let i = 0; i < retries; i++) {
+  //   try {
+  //     await page.goto(url, {
+  //       waitUntil: "networkidle0", // jyada stable hota hai
+  //       timeout: 60000 // timeout double kar diya
+  //     });
+  //     return;
+  //   } catch (err) {
+  //     console.log(`Retry ${i + 1} failed: ${err.message}`);
+  //     if (i === retries - 1) throw err;
+  //   }
+  // }
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
-        waitUntil: "networkidle0", // jyada stable hota hai
-        timeout: 60000 // timeout double kar diya
+        waitUntil: "domcontentloaded",
+        timeout: 60000
       });
       return;
     } catch (err) {
       console.log(`Retry ${i + 1} failed: ${err.message}`);
       if (i === retries - 1) throw err;
+      await new Promise(r => setTimeout(r, 3000)); // wait before next try
     }
   }
 }
@@ -359,7 +372,7 @@ async function scrapeFlipkart(url) {
       predictionText: "Prediction data not available yet.",
     };;
   } catch (err) {
-    if (browser) await browser.close();
+    if (browser) await page.close();
     throw err;
   }
 }
@@ -434,7 +447,7 @@ app.post('/api/scrape-prices', async (req, res) => {
           await safeGotoforamazon(page, url)
           price = await page
             .$eval(
-              "#priceblock_ourprice, #priceblock_dealprice, .a-price .a-offscreen",
+              ".a-price-whole",
               el => el.innerText
             )
             .catch(() => null);
@@ -467,7 +480,7 @@ app.post('/api/scrape-prices', async (req, res) => {
     console.error("Scraping error:", err);
     res.status(500).json({ error: "Failed to scrape URLs" });
   } finally {
-    if (browser) await browser.close();
+    if (browser) await page.close();
   }
 });
 
