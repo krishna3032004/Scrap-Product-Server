@@ -31,28 +31,69 @@ const PORT = process.env.PORT || 4000;
 // }
 
 
+// async function getBrowser() {
+//   return await puppeteer.launch({
+//     args: chromium.args,
+//     defaultViewport: chromium.defaultViewport,
+//     executablePath: await chromium.executablePath(), // ✅ Chrome ka correct path
+//     headless: chromium.headless, // ✅ Lambda-safe headless
+//   });
+// }
+
+let browser;
+
 async function getBrowser() {
-  return await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath(), // ✅ Chrome ka correct path
-    headless: chromium.headless, // ✅ Lambda-safe headless
-  });
+  if (!browser) {
+    browser = await puppeteer.launch({
+      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+  }
+  return browser;
 }
 
 // Retry helper
-async function safeGoto(page, url, retries = 3) {
+// async function safeGoto(page, url, retries = 3) {
+//   for (let i = 0; i < retries; i++) {
+//     try {
+//       page.setDefaultNavigationTimeout(0);
+//       page.setDefaultTimeout(0);
+//       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
+//       return;
+//     } catch (err) {
+//       console.log(`Retry ${i + 1} failed: ${err.message}`);
+//       if (i === retries - 1) throw err;
+//     }
+//   }
+// }
+
+async function safeGoto(page, url, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
-      page.setDefaultNavigationTimeout(0);
-      page.setDefaultTimeout(0);
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
+      await page.goto(url, {
+        waitUntil: "domcontentloaded", // jaldi load hoga
+        timeout: 15000 // 15 sec ka hard limit
+      });
       return;
     } catch (err) {
       console.log(`Retry ${i + 1} failed: ${err.message}`);
       if (i === retries - 1) throw err;
     }
   }
+}
+
+
+async function blockExtraResources(page) {
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    if (["image", "stylesheet", "font", "media"].includes(req.resourceType())) {
+      req.abort();
+    } else {
+      req.continue();
+    }
+  });
 }
 
 
@@ -64,9 +105,12 @@ async function scrapeAmazon(url) {
     browser = await getBrowser();
     console.log(url)
     const page = await browser.newPage();
+
+    await blockExtraResources(page);
+    await safeGoto(page, url);
     // await safeGoto(page, url);
 
-    await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
+    // await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
 
     await page.waitForSelector('#productTitle', { timeout: 0 });
@@ -87,7 +131,8 @@ async function scrapeAmazon(url) {
 
       return { title, currentPrice, mrp, discount, image };
     });
-    await browser.close();
+    // await browser.close();
+    await page.close();
     return {
       title: result.title,
       image: result.image,
@@ -119,7 +164,9 @@ async function scrapeFlipkart(url) {
     browser = await getBrowser();
     const page = await browser.newPage();
 
+    await blockExtraResources(page);
     await safeGoto(page, url);
+    // await safeGoto(page, url);
 
     await page.waitForSelector('span.VU-ZEz', { timeout: 0 });
     // await page.goto(url, { waitUntil: 'networkidle2' });
@@ -136,7 +183,8 @@ async function scrapeFlipkart(url) {
       const discount = discountMatch ? parseInt(discountMatch[0]) : null;
       return { title, image, mrp, price, discount };
     });
-    await browser.close();
+    // await browser.close();
+    await page.close();
     return {
       title: result.title,
       image: result.image,
