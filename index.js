@@ -171,11 +171,11 @@ async function scrapeAmazon(url) {
     // await page.goto(url, { waitUntil: "domcontentloaded",timeout: 0  });
     // await page.goto(url, { waitUntil: 'networkidle2' });
 
-    try {
+    // try {
       await page.waitForSelector('#productTitle', { timeout: 0 });
-    } catch {
-      console.log("Title not found in time, trying alternative selector...");
-    }
+    // } catch {
+    //   console.log("Title not found in time, trying alternative selector...");
+    // }
     // await page.waitForSelector('#productTitle', { timeout: 10000 });
     // await page.waitForSelector('#productTitle');
     const result = await page.evaluate(() => {
