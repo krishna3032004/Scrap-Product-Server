@@ -474,13 +474,14 @@ app.post('/api/scrape-prices', async (req, res) => {
     }
     console.log(results)
 
+    await page.close();
     res.json({ results });
   } catch (err) {
     console.error("Scraping error:", err);
     res.status(500).json({ error: "Failed to scrape URLs" });
-  } finally {
+    
     if (browser) await page.close();
-  }
+  } 
 });
 
 // const PORT = process.env.PORT || 4000;
