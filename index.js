@@ -91,12 +91,13 @@ async function safeGoto(page, url, retries = 2) {
     try {
       await page.goto(url, {
         waitUntil: "domcontentloaded",
-        timeout: 20000
+        timeout: 60000
       });
       return;
     } catch (err) {
       console.log(`Retry ${i + 1} failed: ${err.message}`);
       if (i === retries - 1) throw err;
+      await new Promise(r => setTimeout(r, 3000));
     }
   }
 }
@@ -387,7 +388,7 @@ app.get('/scrape', async (req, res) => {
 
 
   // const { url } = req.query;
-  // console.log(url)
+  console.log(url)
   // if (!url) return res.status(400).json({ error: 'url query param required' });
 
   try {
@@ -400,6 +401,7 @@ app.get('/scrape', async (req, res) => {
     } else {
       return res.status(400).json({ error: 'Only Amazon and Flipkart supported' });
     }
+    console.log(data)
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ error: err.message });
