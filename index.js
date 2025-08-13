@@ -330,12 +330,16 @@ async function scrapeFlipkart(url) {
 
 
     // const page = await getPage();
+    console.log("safegoto pai ja rha")
     await safeGoto(page, url);
+    console.log("safegoto ho gya")
     await new Promise(r => setTimeout(r, 2000));
     // await safeGoto(page, url);
 
+    console.log("waitforselector pai ja rahe")
+    await page.waitForSelector('span.VU-ZEz', { timeout: 30000 });
+    console.log("waitforselector ho gya")
 
-    await page.waitForSelector('span.VU-ZEz', { timeout: 0 });
     // await page.goto(url, { waitUntil: 'networkidle2' });
     // await page.waitForSelector('span.VU-ZEz');
     const result = await page.evaluate(() => {
@@ -351,6 +355,7 @@ async function scrapeFlipkart(url) {
       return { title, image, mrp, price, discount };
     });
     // await browser.close();
+    // console.log(result)
     await page.close();
     return {
       title: result.title,
