@@ -90,7 +90,8 @@ async function safeGoto(page, url, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
-        waitUntil: "domcontentloaded",
+        waitUntil: "networkidle2",
+        // waitUntil: "domcontentloaded",
         timeout: 60000
       });
       return;
