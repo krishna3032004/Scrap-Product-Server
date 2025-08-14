@@ -342,8 +342,8 @@ async function scrapeFlipkart(url) {
       // await page.waitForSelector('#productTitle', { timeout: 0 });
       await page.waitForFunction(() => {
         return document.querySelector('span.VU-ZEz') ||
-          document.querySelector('_6EBuvT') ||
-          document.querySelector('h1');
+          document.querySelector('h1._6EBuvT') ||
+          document.querySelector('.C7fEHH');
       }, { timeout: 30000 });
     } catch {
       console.log("Title not found in time, trying alternative selector...");
