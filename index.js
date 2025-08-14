@@ -341,12 +341,14 @@ async function scrapeFlipkart(url) {
     try {
       // Wait for either title or embedded JSON
       // Wait until title or price loads
-      await page.waitForFunction(() => {
-        return document.querySelector('span.VU-ZEz') ||
-          document.querySelector('h1._6EBuvT') ||
-          document.querySelector('h1 span') ||
-          document.querySelector('#__NEXT_DATA__');
-      }, { timeout: 45000 });
+      // Wait for the Next.js JSON script
+      await page.waitForSelector('script#__NEXT_DATA__', { timeout: 45000 });
+      // await page.waitForFunction(() => {
+      //   return document.querySelector('span.VU-ZEz') ||
+      //     document.querySelector('h1._6EBuvT') ||
+      //     document.querySelector('h1 span') ||
+      //     document.querySelector('#__NEXT_DATA__');
+      // }, { timeout: 45000 });
       // await page.waitForFunction(() => {
       //   return (
       //     document.querySelector("h1 span") ||
@@ -360,10 +362,10 @@ async function scrapeFlipkart(url) {
       //       document.querySelector('h1._6EBuvT') ||
       //       document.querySelector('.C7fEHH');
       //   }, { timeout: 40000 });
+      console.log("waitforselector ho gya")
     } catch {
       console.log("Title not found in time, trying alternative selector...");
     }
-    console.log("waitforselector ho gya")
 
     // await page.goto(url, { waitUntil: 'networkidle2' });
     // await page.waitForSelector('span.VU-ZEz');
