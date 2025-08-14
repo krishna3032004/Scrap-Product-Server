@@ -339,12 +339,20 @@ async function scrapeFlipkart(url) {
     console.log("waitforselector pai ja rahe")
     // await page.waitForSelector('span.VU-ZEz', { timeout: 30000 });
     try {
-      // await page.waitForSelector('#productTitle', { timeout: 0 });
+      // Wait for either title or embedded JSON
       await page.waitForFunction(() => {
-        return document.querySelector('span.VU-ZEz') ||
-          document.querySelector('h1._6EBuvT') ||
-          document.querySelector('.C7fEHH');
-      }, { timeout: 40000 });
+        return (
+          document.querySelector("h1 span") ||
+          document.querySelector("div.Nx9bqj") ||
+          document.querySelector("script#__NEXT_DATA__")
+        );
+      }, { timeout: 45000 });
+      // await page.waitForSelector('#productTitle', { timeout: 0 });
+      //   await page.waitForFunction(() => {
+      //     return document.querySelector('span.VU-ZEz') ||
+      //       document.querySelector('h1._6EBuvT') ||
+      //       document.querySelector('.C7fEHH');
+      //   }, { timeout: 40000 });
     } catch {
       console.log("Title not found in time, trying alternative selector...");
     }
@@ -497,9 +505,9 @@ app.post('/api/scrape-prices', async (req, res) => {
   } catch (err) {
     console.error("Scraping error:", err);
     res.status(500).json({ error: "Failed to scrape URLs" });
-    
+
     // if (browser) await page.close();
-  } 
+  }
 });
 
 // const PORT = process.env.PORT || 4000;
