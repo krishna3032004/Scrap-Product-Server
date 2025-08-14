@@ -340,15 +340,13 @@ async function scrapeFlipkart(url) {
     // await page.waitForSelector('span.VU-ZEz', { timeout: 30000 });
     try {
       // Wait for either title or embedded JSON
-       // Wait until title or price loads
-    await page.waitForFunction(() => {
-      return (
-        document.querySelector("span.VU-ZEz") ||
-        document.querySelector("h1._6EBuvT") ||
-        document.querySelector("h1 span") ||
-        document.querySelector("div.Nx9bqj")
-      );
-    }, { timeout: 45000 });
+      // Wait until title or price loads
+      await page.waitForFunction(() => {
+        return document.querySelector('span.VU-ZEz') ||
+          document.querySelector('h1._6EBuvT') ||
+          document.querySelector('h1 span') ||
+          document.querySelector('#__NEXT_DATA__');
+      }, { timeout: 45000 });
       // await page.waitForFunction(() => {
       //   return (
       //     document.querySelector("h1 span") ||
