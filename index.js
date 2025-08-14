@@ -86,7 +86,7 @@ async function getBrowser() {
 //   }
 // }
 
-async function safeGoto(page, url, retries = 2) {
+async function safeGoto(page, url, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
@@ -337,12 +337,12 @@ async function scrapeFlipkart(url) {
     // await safeGoto(page, url);
 
     console.log("waitforselector pai ja rahe")
-    // await page.waitForSelector('span.VU-ZEz', { timeout: 30000 });
     try {
+      await page.waitForSelector('span.VU-ZEz', { timeout: 60000 });
       // Wait for either title or embedded JSON
       // Wait until title or price loads
       // Wait for the Next.js JSON script
-      await page.waitForSelector('script#__NEXT_DATA__', { timeout: 45000 });
+      // await page.waitForSelector('script#__NEXT_DATA__', { timeout: 45000 });
       // await page.waitForFunction(() => {
       //   return document.querySelector('span.VU-ZEz') ||
       //     document.querySelector('h1._6EBuvT') ||
