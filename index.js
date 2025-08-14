@@ -246,6 +246,8 @@ async function scrapeAmazon(url) {
     } catch {
       console.log("Title not found in time, trying alternative selector...");
     }
+
+
     // await page.waitForSelector('#productTitle', { timeout: 10000 });
     // await page.waitForSelector('#productTitle');
     const result = await page.evaluate(() => {
@@ -338,7 +340,8 @@ async function scrapeFlipkart(url) {
 
     console.log("waitforselector pai ja rahe")
     try {
-      await page.waitForSelector('span.VU-ZEz', { timeout: 60000 });
+      await page.waitForSelector('span.VU-ZEz, div.Nx9bqj', { timeout: 60000 });
+      console.log("waitForSelector completed: title or price found");
       // Wait for either title or embedded JSON
       // Wait until title or price loads
       // Wait for the Next.js JSON script
