@@ -333,20 +333,29 @@ async function scrapeFlipkart(url) {
     console.log("safegoto pai ja rha")
     await safeGoto(page, url);
     console.log("safegoto ho gya")
-    await new Promise(r => setTimeout(r, 2000));
+    // await new Promise(r => setTimeout(r, 2000));
     // await safeGoto(page, url);
 
     console.log("waitforselector pai ja rahe")
     // await page.waitForSelector('span.VU-ZEz', { timeout: 30000 });
     try {
       // Wait for either title or embedded JSON
-      await page.waitForFunction(() => {
-        return (
-          document.querySelector("h1 span") ||
-          document.querySelector("div.Nx9bqj") ||
-          document.querySelector("script#__NEXT_DATA__")
-        );
-      }, { timeout: 45000 });
+       // Wait until title or price loads
+    await page.waitForFunction(() => {
+      return (
+        document.querySelector("span.VU-ZEz") ||
+        document.querySelector("h1._6EBuvT") ||
+        document.querySelector("h1 span") ||
+        document.querySelector("div.Nx9bqj")
+      );
+    }, { timeout: 45000 });
+      // await page.waitForFunction(() => {
+      //   return (
+      //     document.querySelector("h1 span") ||
+      //     document.querySelector("div.Nx9bqj") ||
+      //     document.querySelector("script#__NEXT_DATA__")
+      //   );
+      // }, { timeout: 45000 });
       // await page.waitForSelector('#productTitle', { timeout: 0 });
       //   await page.waitForFunction(() => {
       //     return document.querySelector('span.VU-ZEz') ||
