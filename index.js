@@ -134,6 +134,27 @@ async function safeGotoforamazon(page, url, retries = 3) {
 // Block only extra stuff, but keep product API & images
 async function blockExtraResources(page) {
   await page.setRequestInterception(true);
+  page.on('request', req => {
+    const type = req.resourceType();
+    const url = req.url();
+
+    const blockedTypes = ['stylesheet','font','media','websocket','manifest'];
+    const blockedDomains = ['google-analytics.com','adsense','doubleclick.net','amazon-adsystem.com'];
+
+    if (type === 'xhr' || type === 'fetch') {
+      return req.continue();
+    }
+
+    if (blockedTypes.includes(type) || blockedDomains.some(d => url.includes(d))) {
+      return req.abort();
+    }
+
+    req.continue();
+  });
+}
+
+async function blockExtraResourceaaas(page) {
+  await page.setRequestInterception(true);
   page.on("request", (req) => {
     const type = req.resourceType();
     const url = req.url();
@@ -348,68 +369,98 @@ async function scrapeAmazon(url) {
   }
 }
 async function scrapeFlipkart(url) {
-  let browser;
+  let browser, page;
   try {
     browser = await getBrowser();
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
     await blockExtraResources(page);
-
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
-    );
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115 Safari/537.36');
     await page.setViewport({ width: 1366, height: 768 });
 
-    console.log("Navigating to product page...");
+    console.log("Navigating to Flipkart product page…");
     await safeGoto(page, url);
-    console.log("Page loaded, waiting for API data...");
+    console.log("Page loaded, checking for API data…");
 
     let productData = null;
 
-    // API capture using waitForResponse
     try {
       const apiResponse = await page.waitForResponse(
-        res => res.url().includes("/api/3/page/dynamic/product") && res.status() === 200,
-        { timeout: 5000 }
+        res => res.url().includes('/api/3/page/dynamic/product') && res.status() === 200,
+        { timeout: 7000 }
       );
       const json = await apiResponse.json();
       const info = json?.RESPONSE?.data?.productInfo?.value;
       if (info) {
+        console.log("  API product data captured");
         productData = {
-          title: info?.title || null,
-          image: info?.media?.images?.[0]?.url || null,
-          currentPrice: parseInt(info?.pricing?.finalPrice?.value) || null,
-          mrp: parseInt(info?.pricing?.strikeOffPrice?.value) || null,
-          discount: info?.pricing?.discountPercentage || null,
-          rating: info?.rating?.average || null
+          title: info.title,
+          image: info.media.images[0].url,
+          currentPrice: parseInt(info.pricing.finalPrice.value),
+          mrp: parseInt(info.pricing.strikeOffPrice.value),
+          discount: parseInt(info.pricing.discountPercentage),
+          rating: info.rating.average
         };
       }
     } catch {
-      console.log("API not found, falling back to DOM scraping...");
+      console.log("  No API data, trying fallback…");
     }
 
-    // Fallback DOM scraping
+    // Next fallback: structured LD-JSON in page
     if (!productData) {
-      await page.waitForSelector('span.VU-ZEz, span.B_NuCI', { timeout: 10000 }).catch(() => {});
+      const ldJsonArray = await page.$$eval('script[type="application/ld+json"]', els => els.map(e => e.textContent));
+      for (const text of ldJsonArray) {
+        let obj;
+        try {
+          obj = JSON.parse(text);
+        } catch { continue; }
+        const arr = Array.isArray(obj) ? obj : [obj];
+        for (const it of arr) {
+          if (it['@type'] === 'Product') {
+            console.log("  LD-JSON Product found");
+            productData = {
+              title: it.name,
+              image: Array.isArray(it.image) ? it.image[0] : it.image,
+              currentPrice: parseInt(it.offers?.price),
+              mrp: null,
+              discount: null,
+              rating: it.aggregateRating?.ratingValue ? parseFloat(it.aggregateRating.ratingValue) : null
+            };
+            break;
+          }
+        }
+        if (productData) break;
+      }
+    }
+
+    // Final fallback: DOM scraping
+    if (!productData) {
+      console.log("  Fallback to DOM scraping");
+      const t = await page.$eval('span.VU-ZEz, span.B_NuCI', el => el.innerText).catch(() => null);
+      const img = await page.$eval('img.DByuf4, img._396cs4', el => el.src).catch(() => null);
+      const cp = await page.$eval('div.Nx9bqj, div._30jeq3', el => extractNum(el.innerText)).catch(() => null);
+      const mr = await page.$eval('div.yRaY8j, div._3I9_wc', el => extractNum(el.innerText)).catch(() => null);
+      const ds = await page.$eval('div._3Ay6Sb span', el => {
+        const m = el.innerText.match(/\d+/);
+        return m ? parseInt(m[0],10) : null;
+      }).catch(() => null);
+      const rt = await page.$eval('div._3LWZlK', el => parseFloat(el.innerText)).catch(() => null);
+
+      if (!t) {
+        throw new Error("No product title found in DOM");
+      }
 
       productData = {
-        title: await page.$eval('span.VU-ZEz, span.B_NuCI', el => el.innerText.trim()).catch(() => null),
-        image: await page.$eval('img.DByuf4, img._396cs4', el => el.src).catch(() => null),
-        mrp: await page.$eval('div.yRaY8j, div._3I9_wc', el => parseInt(el.innerText.replace(/[^\d]/g, ''))).catch(() => null),
-        currentPrice: await page.$eval('div.Nx9bqj, div._30jeq3', el => parseInt(el.innerText.replace(/[^\d]/g, ''))).catch(() => null),
-        discount: await page.$eval("div[class*='UkUFwK'] span, div._3Ay6Sb span", el => {
-          const match = el.innerText.match(/\d+/);
-          return match ? parseInt(match[0]) : null;
-        }).catch(() => null),
-        rating: await page.$eval("div._3LWZlK", el => parseFloat(el.innerText)).catch(() => null)
+        title: t,
+        image: img,
+        currentPrice: cp,
+        mrp: mr,
+        discount: ds,
+        rating: rt
       };
     }
 
     await page.close();
-
-    if (!productData || !productData.title) {
-      throw new Error("Flipkart product data not found");
-    }
 
     return {
       ...productData,
@@ -420,17 +471,25 @@ async function scrapeFlipkart(url) {
       platform: "flipkart",
       productLink: url,
       amazonLink: "",
-      priceHistory: [
-        { price: productData.currentPrice, date: new Date().toLocaleDateString('en-CA') },
-      ],
-      predictionText: "Prediction data not available yet.",
+      priceHistory: [{ price: productData.currentPrice, date: new Date().toLocaleDateString("en-CA") }],
+      predictionText: "Data via scraper"
     };
 
-  } catch (error) {
-    console.error("scrapeFlipkart error:", error.message);
-    throw error;
-  } 
+  } catch (err) {
+    console.error("Error in scrapeFlipkart:", err.message);
+    if (page) await page.close();
+    throw err;
+  } finally {
+    if (browser) await browser.close();
+  }
 }
+
+function extractNum(text) {
+  if (!text) return null;
+  const n = text.replace(/[^\d]/g, "");
+  return n ? parseInt(n, 10) : null;
+}
+
 
 
 async function scrapeFlipkartaaaa(url) {
