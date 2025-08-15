@@ -47,26 +47,27 @@ const PORT = process.env.PORT || 4000;
 
 let browser;
 
-// async function getBrowser() {
-//   if (!browser) {
-//     browser = await puppeteerExtra.launch({
-//       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-//       defaultViewport: chromium.defaultViewport,
-//       executablePath: await chromium.executablePath(),
-//       headless: chromium.headless,
-//     });
-//   }
-//   return browser;
-// }
 async function getBrowser() {
-    if (!browser) {
-        browser = await puppeteerExtra.launch({
-            headless: false, // Try headful mode
-            args: ["--no-sandbox", "--disable-setuid-sandbox"]
-        });
-    }
-    return browser;
+  if (!browser) {
+    browser = await puppeteerExtra.launch({
+      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      // headless: chromium.headless,
+      headless: false,
+    });
+  }
+  return browser;
 }
+// async function getBrowser() {
+//     if (!browser) {
+//         browser = await puppeteerExtra.launch({
+//             headless: false, // Try headful mode
+//             args: ["--no-sandbox", "--disable-setuid-sandbox"]
+//         });
+//     }
+//     return browser;
+// }
 
 
 // async function getBrowser() {
