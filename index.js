@@ -347,8 +347,95 @@ async function scrapeAmazon(url) {
     throw err;
   }
 }
-
 async function scrapeFlipkart(url) {
+  let browser;
+  let productData = null;
+
+  try {
+    browser = await getBrowser();
+    const page = await browser.newPage();
+
+    await blockExtraResources(page);
+
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
+
+    // API intercept listener
+    page.on("response", async (response) => {
+      try {
+        const reqUrl = response.url();
+        if (reqUrl.includes("/api/3/page/dynamic/product")) {
+          const json = await response.json();
+          const info = json?.RESPONSE?.data?.productInfo?.value;
+          if (info) {
+            productData = {
+              title: info?.title || null,
+              image: info?.media?.images?.[0]?.url || null,
+              currentPrice: parseInt(info?.pricing?.finalPrice?.value) || null,
+              mrp: parseInt(info?.pricing?.strikeOffPrice?.value) || null,
+              discount: info?.pricing?.discountPercentage || null,
+              rating: info?.rating?.average || null
+            };
+          }
+        }
+      } catch (e) {
+        console.error("API parse error:", e.message);
+      }
+    });
+
+    console.log("Navigating to product page...");
+    await safeGoto(page, url);
+    console.log("Page loaded, waiting for API data...");
+
+    // Wait for API interception
+    await page.waitForTimeout(5000);
+
+    // Fallback: DOM scrape if API not found
+    if (!productData) {
+      console.log("API not found, falling back to DOM scraping...");
+      await page.waitForSelector('span.VU-ZEz', { timeout: 15000 }).catch(() => {});
+
+      productData = {
+        title: await page.$eval('span.VU-ZEz', el => el.innerText.trim()).catch(() => null),
+        image: await page.$eval('img.DByuf4', el => el.src).catch(() => null),
+        mrp: await page.$eval('div.yRaY8j', el => parseInt(el.innerText.replace(/[^\d]/g, ''))).catch(() => null),
+        currentPrice: await page.$eval('div.Nx9bqj', el => parseInt(el.innerText.replace(/[^\d]/g, ''))).catch(() => null),
+        discount: await page.$eval("div[class*='UkUFwK'] span", el => {
+          const match = el.innerText.match(/\d+/);
+          return match ? parseInt(match[0]) : null;
+        }).catch(() => null),
+        rating: null
+      };
+    }
+
+    await page.close();
+
+    if (!productData || !productData.title) throw new Error("Flipkart product data not found");
+
+    return {
+      ...productData,
+      lowest: productData.currentPrice,
+      highest: productData.currentPrice,
+      average: productData.currentPrice,
+      time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      platform: "flipkart",
+      productLink: url,
+      amazonLink: "",
+      priceHistory: [
+        { price: productData.currentPrice, date: new Date().toLocaleDateString('en-CA') },
+      ],
+      predictionText: "Prediction data not available yet.",
+    };
+
+  } catch (error) {
+    console.error("scrapeFlipkart error:", error.message);
+    throw error;
+  }
+}
+
+async function scrapeFlipkartaaaa(url) {
   let browser;
   try {
     browser = await getBrowser();
