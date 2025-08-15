@@ -90,7 +90,7 @@ async function safeGoto(page, url, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
-        waitUntil: "domcontentloaded",
+        waitUntil: "networkidle2",
         // waitUntil: "domcontentloaded",
         timeout: 60000
       });
@@ -394,55 +394,49 @@ async function scrapeFlipkart(url) {
     // await safeGoto(page, url);
     // Wait for Next.js data script
     // console.log("waitforselector pai ja rahe")
-    try {
-      console.log("waitforselector pai ja rahe")
-      await page.waitForSelector('span.VU-ZEz', { timeout: 60000 });
-      // console.log("waitForSelector completed: title or price found");
-      // Wait for either title or embedded JSON
-      // Wait until title or price loads
-      // Wait for the Next.js JSON script
-      // await page.waitForSelector('script#__NEXT_DATA__', { timeout: 45000 });
-      // await page.waitForFunction(() => {
-      //   return document.querySelector('span.VU-ZEz') ||
-      //     document.querySelector('h1._6EBuvT') ||
-      //     document.querySelector('h1 span') ||
-      //     document.querySelector('#__NEXT_DATA__');
-      // }, { timeout: 45000 });
-      // await page.waitForFunction(() => {
-      //   return (
-      //     document.querySelector("h1 span") ||
-      //     document.querySelector("div.Nx9bqj") ||
-      //     document.querySelector("script#__NEXT_DATA__")
-      //   );
-      // }, { timeout: 45000 });
-      // await page.waitForSelector('#productTitle', { timeout: 0 });
-        // await page.waitForFunction(() => {
-        //   return document.querySelector('span.VU-ZEz') ||
-        //     document.querySelector('h1._6EBuvT') ||
-        //     document.querySelector('div.Nx9bqj');
-        // }, { timeout: 60000 });
-      console.log("waitforselector ho gya")
-    } catch {
-      console.log("Title not found in time, trying alternative selector...");
+    // Try to extract JSON from __NEXT_DATA__ (Next.js embedded data)
+    let result = await page.evaluate(() => {
+      try {
+        const data = window.__NEXT_DATA__;
+        const product = data?.props?.pageProps?.productDetails;
+
+        if (!product) return null;
+
+        return {
+          title: product.name || null,
+          image: product.images?.[0] || null,
+          mrp: product.mrp || null,
+          price: product.price || null,
+          discount: product.discount || null,
+        };
+      } catch (err) {
+        return null;
+      }
+    });
+
+    // Fallback: try DOM selectors if JSON failed
+    if (!result || !result.title) {
+      console.log("Fallback: scraping from DOM...");
+      result = await page.evaluate(() => {
+        const title = document.querySelector("span.VU-ZEz")?.innerText.trim() || null;
+        const image = document.querySelector("img.DByuf4")?.src || null;
+        const mrpText = document.querySelector("div.yRaY8j")?.innerText || "";
+        const mrp = parseInt(mrpText.replace(/[^\d]/g, "")) || null;
+        const priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
+        const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
+        const discountText = document.querySelector("div[class*='UkUFwK'] span")?.innerText || "";
+        const discountMatch = discountText.match(/\d+/);
+        const discount = discountMatch ? parseInt(discountMatch[0]) : null;
+        return { title, image, mrp, price, discount };
+      });
     }
 
-    // await page.goto(url, { waitUntil: 'networkidle2' });
-    // await page.waitForSelector('span.VU-ZEz');
-    const result = await page.evaluate(() => {
-      const title = document.querySelector('span.VU-ZEz')?.innerText.trim() || null;
-      const image = document.querySelector('img.DByuf4')?.src || null;
-      const mrpText = document.querySelector('div.yRaY8j')?.innerText || '';
-      const mrp = parseInt(mrpText.replace(/[^\d]/g, '')) || null;
-      const priceText = document.querySelector('div.Nx9bqj')?.innerText || '';
-      const price = parseInt(priceText.replace(/[^\d]/g, '')) || null;
-      const discountText = document.querySelector("div[class*='UkUFwK'] span")?.innerText || '';
-      const discountMatch = discountText.match(/\d+/);
-      const discount = discountMatch ? parseInt(discountMatch[0]) : null;
-      return { title, image, mrp, price, discount };
-    });
-    // await browser.close();
-    // console.log(result)
     await page.close();
+
+    if (!result || !result.title) {
+      throw new Error("Product data not found. Possibly blocked by Flipkart.");
+    }
+
     return {
       title: result.title,
       image: result.image,
@@ -457,11 +451,77 @@ async function scrapeFlipkart(url) {
       platform: "flipkart",
       productLink: url,
       amazonLink: "",
-      priceHistory: [
-        { price: result.price, date: new Date().toLocaleDateString('en-CA') },
-      ],
-      predictionText: "Prediction dat00a not available yet.",
-    };;
+      priceHistory: [{ price: result.price, date: new Date().toLocaleDateString("en-CA") }],
+      predictionText: "Prediction data not available yet.",
+    };
+    // try {
+    //   console.log("waitforselector pai ja rahe")
+    //   await page.waitForSelector('span.VU-ZEz', { timeout: 60000 });
+    //   // console.log("waitForSelector completed: title or price found");
+    //   // Wait for either title or embedded JSON
+    //   // Wait until title or price loads
+    //   // Wait for the Next.js JSON script
+    //   // await page.waitForSelector('script#__NEXT_DATA__', { timeout: 45000 });
+    //   // await page.waitForFunction(() => {
+    //   //   return document.querySelector('span.VU-ZEz') ||
+    //   //     document.querySelector('h1._6EBuvT') ||
+    //   //     document.querySelector('h1 span') ||
+    //   //     document.querySelector('#__NEXT_DATA__');
+    //   // }, { timeout: 45000 });
+    //   // await page.waitForFunction(() => {
+    //   //   return (
+    //   //     document.querySelector("h1 span") ||
+    //   //     document.querySelector("div.Nx9bqj") ||
+    //   //     document.querySelector("script#__NEXT_DATA__")
+    //   //   );
+    //   // }, { timeout: 45000 });
+    //   // await page.waitForSelector('#productTitle', { timeout: 0 });
+    //     // await page.waitForFunction(() => {
+    //     //   return document.querySelector('span.VU-ZEz') ||
+    //     //     document.querySelector('h1._6EBuvT') ||
+    //     //     document.querySelector('div.Nx9bqj');
+    //     // }, { timeout: 60000 });
+    //   console.log("waitforselector ho gya")
+    // } catch {
+    //   console.log("Title not found in time, trying alternative selector...");
+    // }
+
+    // // await page.goto(url, { waitUntil: 'networkidle2' });
+    // // await page.waitForSelector('span.VU-ZEz');
+    // const result = await page.evaluate(() => {
+    //   const title = document.querySelector('span.VU-ZEz')?.innerText.trim() || null;
+    //   const image = document.querySelector('img.DByuf4')?.src || null;
+    //   const mrpText = document.querySelector('div.yRaY8j')?.innerText || '';
+    //   const mrp = parseInt(mrpText.replace(/[^\d]/g, '')) || null;
+    //   const priceText = document.querySelector('div.Nx9bqj')?.innerText || '';
+    //   const price = parseInt(priceText.replace(/[^\d]/g, '')) || null;
+    //   const discountText = document.querySelector("div[class*='UkUFwK'] span")?.innerText || '';
+    //   const discountMatch = discountText.match(/\d+/);
+    //   const discount = discountMatch ? parseInt(discountMatch[0]) : null;
+    //   return { title, image, mrp, price, discount };
+    // });
+    // // await browser.close();
+    // // console.log(result)
+    // await page.close();
+    // return {
+    //   title: result.title,
+    //   image: result.image,
+    //   currentPrice: result.price,
+    //   mrp: result.mrp,
+    //   lowest: result.price,
+    //   highest: result.price,
+    //   average: result.price,
+    //   discount: result.discount,
+    //   rating: 4,
+    //   time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+    //   platform: "flipkart",
+    //   productLink: url,
+    //   amazonLink: "",
+    //   priceHistory: [
+    //     { price: result.price, date: new Date().toLocaleDateString('en-CA') },
+    //   ],
+    //   predictionText: "Prediction dat00a not available yet.",
+    // };;
   } catch (err) {
     if (browser) await page.close();
     throw err;
