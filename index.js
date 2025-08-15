@@ -20,13 +20,26 @@ async function getBrowser() {
     browser = await puppeteerExtra.launch({
       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      // headless: false,
-      headless: chromium.headless,
+      executablePath: await chromium.executablePath(), // Render par yeh hi chalega
+      headless: true, // Render par hamesha headless rakho
+      ignoreHTTPSErrors: true
     });
   }
   return browser;
 }
+
+// async function getBrowser() {
+//   if (!browser) {
+//     browser = await puppeteerExtra.launch({
+//       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+//       defaultViewport: chromium.defaultViewport,
+//       executablePath: await chromium.executablePath(),
+//       // headless: false,
+//       headless: chromium.headless,
+//     });
+//   }
+//   return browser;
+// }
 
 async function safeGoto(page, url, retries = 3) {
   for (let i = 0; i < retries; i++) {
@@ -294,6 +307,13 @@ async function scrapeFlipkart(url) {
     await safeGoto(page, url);
     // await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     // await page.waitForTimeout(5000); // wait for JS load
+    // Close any login/location popup
+    try {
+      await page.waitForSelector('button._2KpZ6l._2doB4z', { timeout: 5000 });
+      await page.click('button._2KpZ6l._2doB4z');
+      console.log("Closed popup");
+    } catch { /* popup not found */ }
+
 
     await page.evaluate(() => window.scrollBy(0, 500));
     await new Promise(r => setTimeout(r, 5000));
@@ -305,7 +325,12 @@ async function scrapeFlipkart(url) {
     //   const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
     //   return { title, image, price };
     // });
-    await page.waitForSelector('span.VU-ZEz', { timeout: 60000 });
+    await page.waitForFunction(() => {
+      return document.querySelector("span.VU-ZEz") ||
+        document.querySelector("span.B_NuCI") ||
+        document.querySelector("h1");
+    }, { timeout: 20000 });
+    // await page.waitForSelector("span.VU-ZEz", { timeout: 60000 });
     let result = await page.evaluate(() => {
       let title = document.querySelector("span.VU-ZEz")?.innerText || null;
       let image = document.querySelector("img.DByuf4")?.src || null;
