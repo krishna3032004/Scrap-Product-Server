@@ -53,8 +53,8 @@ async function getBrowser() {
       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
-      // headless: chromium.headless,
-      headless: false,
+      headless: chromium.headless,
+      // headless: false,
     });
   }
   return browser;
