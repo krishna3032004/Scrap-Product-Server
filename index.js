@@ -21,7 +21,7 @@ async function getBrowser() {
       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(), // Render par yeh hi chalega
-      headless: true, // Render par hamesha headless rakho
+      headless: chromium.headless, // Render par hamesha headless rakho
       ignoreHTTPSErrors: true
     });
   }
@@ -318,8 +318,8 @@ async function scrapeFlipkart(url) {
      }
 
 
-    await page.evaluate(() => window.scrollBy(0, 500));
-    await new Promise(r => setTimeout(r, 5000));
+    // await page.evaluate(() => window.scrollBy(0, 500));
+    // await new Promise(r => setTimeout(r, 5000));
 
     // const result = await page.evaluate(() => {
     //   const title = document.querySelector("span.VU-ZEz")?.innerText || null;
@@ -333,7 +333,7 @@ async function scrapeFlipkart(url) {
       return document.querySelector("span.VU-ZEz") ||
         document.querySelector("span.B_NuCI") ||
         document.querySelector("h1");
-    }, { timeout: 20000 });
+    }, { timeout: 40000 });
     console.log("wait for function ho gya")
     // await page.waitForSelector("span.VU-ZEz", { timeout: 60000 });
     let result = await page.evaluate(() => {
