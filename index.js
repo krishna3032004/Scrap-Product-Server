@@ -390,7 +390,8 @@ async function scrapeFlipkart(url) {
     console.log("Page loaded, waiting for API data...");
 
     // Wait for API interception
-    await page.waitForTimeout(5000);
+    // await page.waitForTimeout(5000);
+    await new Promise(r => setTimeout(r, 5000));
 
     // Fallback: DOM scrape if API not found
     if (!productData) {
