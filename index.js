@@ -47,17 +47,27 @@ const PORT = process.env.PORT || 4000;
 
 let browser;
 
+// async function getBrowser() {
+//   if (!browser) {
+//     browser = await puppeteerExtra.launch({
+//       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+//       defaultViewport: chromium.defaultViewport,
+//       executablePath: await chromium.executablePath(),
+//       headless: chromium.headless,
+//     });
+//   }
+//   return browser;
+// }
 async function getBrowser() {
-  if (!browser) {
-    browser = await puppeteerExtra.launch({
-      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-    });
-  }
-  return browser;
+    if (!browser) {
+        browser = await puppeteerExtra.launch({
+            headless: false, // Try headful mode
+            args: ["--no-sandbox", "--disable-setuid-sandbox"]
+        });
+    }
+    return browser;
 }
+
 
 // async function getBrowser() {
 //   if (!browser) {
@@ -209,36 +219,36 @@ async function blockExtraResources(page) {
 //       req.continue();
 //     }
 //   });
-  // page.on('request', (req) => {
-  //   const blocked = ['image', 'stylesheet', 'font', 'media'];
-  //   if (blocked.includes(req.resourceType())) {
-  //     req.abort();
-  //   } else {
-  //     req.continue();
-  //   }
-  // });
+// page.on('request', (req) => {
+//   const blocked = ['image', 'stylesheet', 'font', 'media'];
+//   if (blocked.includes(req.resourceType())) {
+//     req.abort();
+//   } else {
+//     req.continue();
+//   }
+// });
 
 
 
 
 
-  // const blockedDomains = [
-  //   'googletagmanager.com', 'google-analytics.com', 'doubleclick.net',
-  //   'ads.yahoo.com', 'bat.bing.com', 'amazon-adsystem.com'
-  // ];
+// const blockedDomains = [
+//   'googletagmanager.com', 'google-analytics.com', 'doubleclick.net',
+//   'ads.yahoo.com', 'bat.bing.com', 'amazon-adsystem.com'
+// ];
 
-  // await page.setRequestInterception(true);
-  // page.on('request', req => {
-  //   const url = req.url().toLowerCase();
-  //   if (
-  //     ['image', 'stylesheet', 'font', 'media', 'other'].includes(req.resourceType()) ||
-  //     blockedDomains.some(domain => url.includes(domain))
-  //   ) {
-  //     req.abort();
-  //   } else {
-  //     req.continue();
-  //   }
-  // });
+// await page.setRequestInterception(true);
+// page.on('request', req => {
+//   const url = req.url().toLowerCase();
+//   if (
+//     ['image', 'stylesheet', 'font', 'media', 'other'].includes(req.resourceType()) ||
+//     blockedDomains.some(domain => url.includes(domain))
+//   ) {
+//     req.abort();
+//   } else {
+//     req.continue();
+//   }
+// });
 // }
 
 // let page;
@@ -373,9 +383,10 @@ async function scrapeAmazon(url) {
 
 async function scrapeFlipkart(url) {
   let browser;
+  let page;
   try {
     browser = await getBrowser();
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
     // await blockExtraResources(page);
     await page.setUserAgent(
@@ -390,69 +401,33 @@ async function scrapeFlipkart(url) {
     await safeGoto(page, url);
     console.log("safegoto ho gya")
     await new Promise(r => setTimeout(r, 5000));
+    // Optional: scroll a bit to avoid lazy-loading
+    await page.evaluate(() => window.scrollBy(0, 500));
 
     // await safeGoto(page, url);
     // Wait for Next.js data script
     // console.log("waitforselector pai ja rahe")
     // Try to extract JSON from __NEXT_DATA__ (Next.js embedded data)
+    // Try extracting title from common places
     let result = await page.evaluate(() => {
-      try {
-        const data = window.__NEXT_DATA__;
-        const product = data?.props?.pageProps?.productDetails;
-
-        if (!product) return null;
-
-        return {
-          title: product.name || null,
-          image: product.images?.[0] || null,
-          mrp: product.mrp || null,
-          price: product.price || null,
-          discount: product.discount || null,
-        };
-      } catch (err) {
-        return null;
-      }
+      let title = document.querySelector("span._35KyD6")?.innerText || null;
+      let image = document.querySelector("img._396cs4")?.src || null;
+      let priceText = document.querySelector("div._30jeq3")?.innerText || "";
+      let price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
+      return { title, image, price };
     });
-
-    // Fallback: try DOM selectors if JSON failed
-    if (!result || !result.title) {
-      console.log("Fallback: scraping from DOM...");
-      result = await page.evaluate(() => {
-        const title = document.querySelector("span.VU-ZEz")?.innerText.trim() || null;
-        const image = document.querySelector("img.DByuf4")?.src || null;
-        const mrpText = document.querySelector("div.yRaY8j")?.innerText || "";
-        const mrp = parseInt(mrpText.replace(/[^\d]/g, "")) || null;
-        const priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
-        const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
-        const discountText = document.querySelector("div[class*='UkUFwK'] span")?.innerText || "";
-        const discountMatch = discountText.match(/\d+/);
-        const discount = discountMatch ? parseInt(discountMatch[0]) : null;
-        return { title, image, mrp, price, discount };
-      });
-    }
 
     await page.close();
 
-    if (!result || !result.title) {
-      throw new Error("Product data not found. Possibly blocked by Flipkart.");
-    }
+    if (!result || !result.title) throw new Error("Product data not found");
 
     return {
       title: result.title,
       image: result.image,
       currentPrice: result.price,
-      mrp: result.mrp,
-      lowest: result.price,
-      highest: result.price,
-      average: result.price,
-      discount: result.discount,
-      rating: 4,
-      time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      time: new Date().toLocaleString("en-IN"),
       platform: "flipkart",
-      productLink: url,
-      amazonLink: "",
-      priceHistory: [{ price: result.price, date: new Date().toLocaleDateString("en-CA") }],
-      predictionText: "Prediction data not available yet.",
+      productLink: url
     };
     // try {
     //   console.log("waitforselector pai ja rahe")
@@ -523,7 +498,7 @@ async function scrapeFlipkart(url) {
     //   predictionText: "Prediction dat00a not available yet.",
     // };;
   } catch (err) {
-    if (browser) await page.close();
+    if (page) await page.close();
     throw err;
   }
 }
