@@ -291,18 +291,26 @@ async function scrapeFlipkart(url) {
     await page.setViewport({ width: 1366, height: 768 });
 
     console.log("Navigating to Flipkart page...");
-     await safeGoto(page, url);
+    await safeGoto(page, url);
     // await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     // await page.waitForTimeout(5000); // wait for JS load
 
-    await new Promise(r => setTimeout(r, 5000));
     await page.evaluate(() => window.scrollBy(0, 500));
+    await new Promise(r => setTimeout(r, 5000));
 
-    const result = await page.evaluate(() => {
-      const title = document.querySelector("span.VU-ZEz")?.innerText || null;
-      const image = document.querySelector("img.DByuf4")?.src || null;
-      const priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
-      const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
+    // const result = await page.evaluate(() => {
+    //   const title = document.querySelector("span.VU-ZEz")?.innerText || null;
+    //   const image = document.querySelector("img.DByuf4")?.src || null;
+    //   const priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
+    //   const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
+    //   return { title, image, price };
+    // });
+    await page.waitForSelector('span.VU-ZEz', { timeout: 15000 });
+    let result = await page.evaluate(() => {
+      let title = document.querySelector("span.VU-ZEz")?.innerText || null;
+      let image = document.querySelector("img.DByuf4")?.src || null;
+      let priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
+      let price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
       return { title, image, price };
     });
 
