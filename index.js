@@ -291,7 +291,8 @@ async function scrapeFlipkart(url) {
     await page.setViewport({ width: 1366, height: 768 });
 
     console.log("Navigating to Flipkart page...");
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+     await safeGoto(page, url);
+    // await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     // await page.waitForTimeout(5000); // wait for JS load
 
     await new Promise(r => setTimeout(r, 5000));
