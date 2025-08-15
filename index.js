@@ -342,7 +342,13 @@ async function scrapeFlipkart(url) {
     console.log("waitforselector pai ja rahe")
     try {
       // await page.waitForSelector('span.VU-ZEz, div.Nx9bqj', { timeout: 60000 });
-      await page.waitForSelector('script#__NEXT_DATA__', { timeout: 60000 });
+      // await page.waitForSelector('script#__NEXT_DATA__', { timeout: 60000 });
+      console.log("waiting for __NEXT_DATA__ script...");
+      await page.waitForFunction(
+        () => !!document.querySelector("script#__NEXT_DATA__"),
+        { timeout: 60000 }
+      );
+      console.log("__NEXT_DATA__ found!");
       console.log("waitForSelector completed: title or price found");
     } catch {
       console.log("Title not found in time, trying alternative selector...");
@@ -361,7 +367,7 @@ async function scrapeFlipkart(url) {
     let mrp = parseInt(productInfo?.pricing?.strikeOffPrice?.value) || null;
     let currentPrice = parseInt(productInfo?.pricing?.finalPrice?.value) || null;
     let discount = productInfo?.pricing?.discountPercentage || null;
-    
+
     await page.close();
 
     return {
