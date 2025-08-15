@@ -4,6 +4,8 @@ import puppeteer from "puppeteer";
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import puppeteerExtra from 'puppeteer-extra';
 
+import vanillaPuppeteer from "puppeteer"; // to get correct executablePath
+
 
 puppeteerExtra.use(StealthPlugin());
 // import puppeteer from 'puppeteer';
@@ -290,13 +292,12 @@ async function scrapeAmazon(url) {
     throw err;
   }
 }
-
 async function scrapeFlipkart(url) {
   let browser;
   try {
     browser = await puppeteerExtra.launch({
       headless: true,
-      executablePath: puppeteer.executablePath(), // direct from puppeteer
+      executablePath: vanillaPuppeteer.executablePath(), // use bundled chromium path
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -316,24 +317,47 @@ async function scrapeFlipkart(url) {
 
     await page.goto(url, { waitUntil: "networkidle2", timeout: 0 });
 
-    // Extract product data
-    const data = await page.evaluate(() => {
-      const title =
-        document.querySelector("span.B_NuCI")?.innerText?.trim() ||
-        document.querySelector("span.VU-ZEz")?.innerText?.trim();
-
-      const price =
-        document.querySelector("div._30jeq3._16Jk6d")?.innerText?.trim() ||
-        document.querySelector("div.Nx9bqj.CxhGGd")?.innerText?.trim();
-
-      const image =
-        document.querySelector("img._396cs4._2amPTt._3qGmMb")?.src ||
-        document.querySelector("img.DByuf4")?.src;
-
-      return { title, price, image };
+    // Try internal JSON first
+    let data = await page.evaluate(() => {
+      try {
+        const jsonText = document.querySelector("#__NEXT_DATA__")?.textContent;
+        if (jsonText) {
+          const jsonData = JSON.parse(jsonText);
+          const productInfo =
+            jsonData?.props?.pageProps?.pageData?.productInfo?.value || {};
+          const title = productInfo?.title;
+          const price =
+            productInfo?.pricing?.price?.finalPrice ||
+            productInfo?.priceInfo?.finalPrice;
+          const image = productInfo?.media?.images?.[0]?.url;
+          if (title && price && image) {
+            return { title, price: `₹${price}`, image };
+          }
+        }
+      } catch {}
+      return null;
     });
 
-    if (!data.title || !data.price || !data.image) {
+    // Fallback to DOM scraping
+    if (!data) {
+      data = await page.evaluate(() => {
+        const title =
+          document.querySelector("span.B_NuCI")?.innerText?.trim() ||
+          document.querySelector("span.VU-ZEz")?.innerText?.trim();
+
+        const price =
+          document.querySelector("div._30jeq3._16Jk6d")?.innerText?.trim() ||
+          document.querySelector("div.Nx9bqj.CxhGGd")?.innerText?.trim();
+
+        const image =
+          document.querySelector("img._396cs4._2amPTt._3qGmMb")?.src ||
+          document.querySelector("img.DByuf4")?.src;
+
+        return { title, price, image };
+      });
+    }
+
+    if (!data?.title || !data?.price || !data?.image) {
       throw new Error("Could not extract product details");
     }
 
