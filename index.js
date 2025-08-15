@@ -420,7 +420,7 @@ async function scrapeFlipkart(url) {
           return document.querySelector('span.VU-ZEz') ||
             document.querySelector('h1._6EBuvT') ||
             document.querySelector('div.Nx9bqj');
-        }, { timeout: 40000 });
+        }, { timeout: 60000 });
       console.log("waitforselector ho gya")
     } catch {
       console.log("Title not found in time, trying alternative selector...");
