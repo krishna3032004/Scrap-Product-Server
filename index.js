@@ -307,6 +307,7 @@ async function scrapeFlipkart(url) {
     await safeGoto(page, url);
     // await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     // await page.waitForTimeout(5000); // wait for JS load
+    console.log("safegoto ho gya");
     // Close any login/location popup
     try {
       await page.waitForSelector('button._2KpZ6l._2doB4z', { timeout: 5000 });
@@ -325,11 +326,13 @@ async function scrapeFlipkart(url) {
     //   const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
     //   return { title, image, price };
     // });
+    console.log("wait for function")
     await page.waitForFunction(() => {
       return document.querySelector("span.VU-ZEz") ||
         document.querySelector("span.B_NuCI") ||
         document.querySelector("h1");
     }, { timeout: 20000 });
+    console.log("wait for function ho gya")
     // await page.waitForSelector("span.VU-ZEz", { timeout: 60000 });
     let result = await page.evaluate(() => {
       let title = document.querySelector("span.VU-ZEz")?.innerText || null;
