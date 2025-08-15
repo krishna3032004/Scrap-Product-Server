@@ -337,10 +337,26 @@ async function scrapeFlipkart(url) {
     console.log("wait for function ho gya")
     // await page.waitForSelector("span.VU-ZEz", { timeout: 60000 });
     let result = await page.evaluate(() => {
-      let title = document.querySelector("span.VU-ZEz")?.innerText || null;
-      let image = document.querySelector("img.DByuf4")?.src || null;
-      let priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
-      let price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
+       const title =
+        document.querySelector("span.VU-ZEz")?.innerText ||
+        document.querySelector("span.B_NuCI")?.innerText ||
+        document.querySelector("h1 span")?.innerText ||
+        document.querySelector("meta[property='og:title']")?.content ||
+        null;
+      // let title = document.querySelector("span.VU-ZEz")?.innerText || null;
+      const image =
+        document.querySelector("img.DByuf4")?.src ||
+        document.querySelector("img._396cs4")?.src ||
+        document.querySelector("meta[property='og:image']")?.content ||
+        null;
+      // let image = document.querySelector("img.DByuf4")?.src || null;
+      let priceText =
+        document.querySelector("div.Nx9bqj")?.innerText ||
+        document.querySelector("div._30jeq3")?.innerText ||
+        "";
+      const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
+      // let priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
+      // let price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
       return { title, image, price };
     });
 
