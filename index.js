@@ -305,7 +305,7 @@ async function scrapeFlipkart(url) {
     //   const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
     //   return { title, image, price };
     // });
-    await page.waitForSelector('span.VU-ZEz', { timeout: 15000 });
+    await page.waitForSelector('span.VU-ZEz', { timeout: 30000 });
     let result = await page.evaluate(() => {
       let title = document.querySelector("span.VU-ZEz")?.innerText || null;
       let image = document.querySelector("img.DByuf4")?.src || null;
