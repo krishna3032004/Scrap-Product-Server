@@ -13,99 +13,20 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 // const PORT = process.env.PORT || 4000;
 
-// async function getBrowser() {
-//   // if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RENDER) {
-//   //   console.log("ha abh btao chl rha kya")
-//   //   // Production (serverless)
-//   //   return puppeteer.launch({
-//   //     args: chromium.args,
-//   //     defaultViewport: chromium.defaultViewport,
-//   //     executablePath: await chromium.executablePath,
-//   //     headless: chromium.headless,
-//   //   });
-//   if (process.env.RENDER) {
-//     // Use full puppeteer with its bundled Chromium
-//     const puppeteerFull = await import('puppeteer');
-//     return puppeteerFull.default.launch({ headless: true, args: ['--no-sandbox'] });
-//   } else {
-//     // Local development
-//     // console.log(url)
-//     const puppeteerLocal = await import('puppeteer');
-//     return puppeteerLocal.default.launch({ headless: true });
-//   }
-// }
-
-
-// async function getBrowser() {
-//   return await puppeteer.launch({
-//     args: chromium.args,
-//     defaultViewport: chromium.defaultViewport,
-//     executablePath: await chromium.executablePath(), // ✅ Chrome ka correct path
-//     headless: chromium.headless, // ✅ Lambda-safe headless
-//   });
-// }
-
 let browser;
-
-// async function getBrowser() {
-//   if (!browser) {
-//     browser = await puppeteerExtra.launch({
-//       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-//       defaultViewport: chromium.defaultViewport,
-//       executablePath: await chromium.executablePath(),
-//       headless: false,
-//       // headless: chromium.headless,
-//     });
-//   }
-//   return browser;
-// }
 
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteerExtra.launch({
-      headless: true, // true recommended for server
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      // headless: false,
+      headless: chromium.headless,
     });
   }
   return browser;
 }
-// async function getBrowser() {
-//     if (!browser) {
-//         browser = await puppeteerExtra.launch({
-//             headless: false, // Try headful mode
-//             args: ["--no-sandbox", "--disable-setuid-sandbox"]
-//         });
-//     }
-//     return browser;
-// }
-
-
-// async function getBrowser() {
-//   if (!browser) {
-//     browser = await puppeteer.launch({
-//       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-//       defaultViewport: chromium.defaultViewport,
-//       executablePath: await chromium.executablePath(),
-//       headless: chromium.headless,
-//     });
-//   }
-//   return browser;
-// }
-
-// Retry helper
-// async function safeGoto(page, url, retries = 3) {
-//   for (let i = 0; i < retries; i++) {
-//     try {
-//       page.setDefaultNavigationTimeout(0);
-//       page.setDefaultTimeout(0);
-//       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
-//       return;
-//     } catch (err) {
-//       console.log(`Retry ${i + 1} failed: ${err.message}`);
-//       if (i === retries - 1) throw err;
-//     }
-//   }
-// }
 
 async function safeGoto(page, url, retries = 3) {
   for (let i = 0; i < retries; i++) {
@@ -124,18 +45,6 @@ async function safeGoto(page, url, retries = 3) {
   }
 }
 async function safeGotoforamazon(page, url, retries = 3) {
-  // for (let i = 0; i < retries; i++) {
-  //   try {
-  //     await page.goto(url, {
-  //       waitUntil: "networkidle0", // jyada stable hota hai
-  //       timeout: 60000 // timeout double kar diya
-  //     });
-  //     return;
-  //   } catch (err) {
-  //     console.log(`Retry ${i + 1} failed: ${err.message}`);
-  //     if (i === retries - 1) throw err;
-  //   }
-  // }
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
@@ -152,27 +61,6 @@ async function safeGotoforamazon(page, url, retries = 3) {
 }
 
 
-// Block only extra stuff, but keep product API & images
-// async function blockExtraResources(page) {
-//   await page.setRequestInterception(true);
-//   page.on('request', req => {
-//     const type = req.resourceType();
-//     const url = req.url();
-
-//     const blockedTypes = ['stylesheet','font','media','websocket','manifest'];
-//     const blockedDomains = ['google-analytics.com','adsense','doubleclick.net','amazon-adsystem.com'];
-
-//     if (type === 'xhr' || type === 'fetch') {
-//       return req.continue();
-//     }
-
-//     if (blockedTypes.includes(type) || blockedDomains.some(d => url.includes(d))) {
-//       return req.abort();
-//     }
-
-//     req.continue();
-//   });
-// }
 
 async function blockExtraResources(page) {
   await page.setRequestInterception(true);
@@ -405,7 +293,7 @@ async function scrapeFlipkart(url) {
     console.log("Navigating to Flipkart page...");
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     // await page.waitForTimeout(5000); // wait for JS load
-    
+
     await new Promise(r => setTimeout(r, 5000));
     await page.evaluate(() => window.scrollBy(0, 500));
 
