@@ -313,7 +313,9 @@ async function scrapeFlipkart(url) {
       await page.waitForSelector('button._2KpZ6l._2doB4z', { timeout: 5000 });
       await page.click('button._2KpZ6l._2doB4z');
       console.log("Closed popup");
-    } catch { /* popup not found */ }
+    } catch { /* popup not found */
+      console.log("popup not found")
+     }
 
 
     await page.evaluate(() => window.scrollBy(0, 500));
