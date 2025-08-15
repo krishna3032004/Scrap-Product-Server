@@ -47,14 +47,24 @@ const PORT = process.env.PORT || 4000;
 
 let browser;
 
+// async function getBrowser() {
+//   if (!browser) {
+//     browser = await puppeteerExtra.launch({
+//       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+//       defaultViewport: chromium.defaultViewport,
+//       executablePath: await chromium.executablePath(),
+//       headless: false,
+//       // headless: chromium.headless,
+//     });
+//   }
+//   return browser;
+// }
+
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteerExtra.launch({
-      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-      // headless: false,
+      headless: true, // true recommended for server
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
   }
   return browser;
@@ -383,6 +393,48 @@ async function scrapeAmazon(url) {
 
 
 async function scrapeFlipkart(url) {
+  let page;
+  try {
+    const browser = await getBrowser();
+    page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
+
+    console.log("Navigating to Flipkart page...");
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+    // await page.waitForTimeout(5000); // wait for JS load
+    
+    await new Promise(r => setTimeout(r, 5000));
+    await page.evaluate(() => window.scrollBy(0, 500));
+
+    const result = await page.evaluate(() => {
+      const title = document.querySelector("span.VU-ZEz")?.innerText || null;
+      const image = document.querySelector("img.DByuf4")?.src || null;
+      const priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
+      const price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
+      return { title, image, price };
+    });
+
+    if (!result || !result.title) throw new Error("Product data not found");
+
+    await page.close();
+    return {
+      title: result.title,
+      image: result.image,
+      currentPrice: result.price,
+      time: new Date().toLocaleString("en-IN"),
+      platform: "flipkart",
+      productLink: url,
+    };
+  } catch (err) {
+    if (page) await page.close();
+    throw err;
+  }
+}
+
+async function scrapeFlipkartss(url) {
   let browser;
   let page;
   try {
@@ -411,9 +463,9 @@ async function scrapeFlipkart(url) {
     // Try to extract JSON from __NEXT_DATA__ (Next.js embedded data)
     // Try extracting title from common places
     let result = await page.evaluate(() => {
-      let title = document.querySelector("span._35KyD6")?.innerText || null;
-      let image = document.querySelector("img._396cs4")?.src || null;
-      let priceText = document.querySelector("div._30jeq3")?.innerText || "";
+      let title = document.querySelector("span.VU-ZEz")?.innerText || null;
+      let image = document.querySelector("img.DByuf4")?.src || null;
+      let priceText = document.querySelector("div.Nx9bqj")?.innerText || "";
       let price = parseInt(priceText.replace(/[^\d]/g, "")) || null;
       return { title, image, price };
     });
