@@ -389,14 +389,14 @@ async function scrapeFlipkart(url) {
     console.log("safegoto pai ja rha")
     await safeGoto(page, url);
     console.log("safegoto ho gya")
-    // await new Promise(r => setTimeout(r, 5000));
+    await new Promise(r => setTimeout(r, 5000));
 
     // await safeGoto(page, url);
     // Wait for Next.js data script
     // console.log("waitforselector pai ja rahe")
     try {
       console.log("waitforselector pai ja rahe")
-      // await page.waitForSelector('span.VU-ZEz, div.Nx9bqj', { timeout: 60000 });
+      await page.waitForSelector('span.VU-ZEz', { timeout: 60000 });
       // console.log("waitForSelector completed: title or price found");
       // Wait for either title or embedded JSON
       // Wait until title or price loads
@@ -416,11 +416,11 @@ async function scrapeFlipkart(url) {
       //   );
       // }, { timeout: 45000 });
       // await page.waitForSelector('#productTitle', { timeout: 0 });
-        await page.waitForFunction(() => {
-          return document.querySelector('span.VU-ZEz') ||
-            document.querySelector('h1._6EBuvT') ||
-            document.querySelector('div.Nx9bqj');
-        }, { timeout: 60000 });
+        // await page.waitForFunction(() => {
+        //   return document.querySelector('span.VU-ZEz') ||
+        //     document.querySelector('h1._6EBuvT') ||
+        //     document.querySelector('div.Nx9bqj');
+        // }, { timeout: 60000 });
       console.log("waitforselector ho gya")
     } catch {
       console.log("Title not found in time, trying alternative selector...");
