@@ -131,33 +131,150 @@ async function safeGotoforamazon(page, url, retries = 3) {
 }
 
 
+// Block only extra stuff, but keep product API & images
 async function blockExtraResources(page) {
   await page.setRequestInterception(true);
   page.on("request", (req) => {
-    const blocked = [
-      "stylesheet",
-      "font",
-      "media",
-      "websocket",
-      "manifest"
-    ];
+    const type = req.resourceType();
+    const url = req.url();
+
+    const blockedTypes = ["stylesheet", "font", "media", "websocket", "manifest"];
     const blockedDomains = [
       "google-analytics.com",
       "adsense",
       "doubleclick.net",
-      "amazon-adsystem.com",
-      "flipkart.net"
+      "amazon-adsystem.com"
+      // ❌ flipkart.net is removed, otherwise API/images break
     ];
 
-    if (
-      blocked.includes(req.resourceType()) ||
-      blockedDomains.some(domain => req.url().includes(domain))
-    ) {
-      req.abort();
-    } else {
-      req.continue();
+    // Never block product API requests
+    if (type === "xhr" || type === "fetch") {
+      return req.continue();
     }
+
+    if (blockedTypes.includes(type) || blockedDomains.some(d => url.includes(d))) {
+      return req.abort();
+    }
+
+    req.continue();
   });
+}
+
+// Main Flipkart scraper
+async function scrapeFlipkart(url) {
+  let browser;
+  try {
+    browser = await getBrowser();
+    const page = await browser.newPage();
+
+    await blockExtraResources(page);
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
+
+    console.log("safegoto start");
+    let productData = null;
+
+    // Listen for product API response
+    page.on("response", async (response) => {
+      try {
+        const reqUrl = response.url();
+        if (reqUrl.includes("/api/3/page/dynamic/product")) {
+          const json = await response.json();
+          const info = json?.RESPONSE?.data?.productInfo?.value;
+          if (info) {
+            console.log("✅ Product API data found");
+            productData = {
+              title: info?.title || null,
+              image: info?.media?.images?.[0]?.url || null,
+              currentPrice: parseInt(info?.pricing?.finalPrice?.value) || null,
+              mrp: parseInt(info?.pricing?.strikeOffPrice?.value) || null,
+              discount: info?.pricing?.discountPercentage || null,
+              rating: info?.rating?.average || null
+            };
+          }
+        }
+      } catch (e) {
+        console.log("API parse error:", e.message);
+      }
+    });
+
+    await safeGoto(page, url);
+    console.log("safegoto done");
+
+    // Wait a bit for API intercept
+    await page.waitForTimeout(5000);
+
+    // DOM fallback if API fails
+    if (!productData) {
+      console.log("⚠️ API not found, falling back to DOM scrape...");
+      await page.waitForSelector('span.VU-ZEz', { timeout: 15000 }).catch(() => {});
+      productData = {
+        title: await page.$eval('span.VU-ZEz', el => el.innerText.trim()).catch(() => null),
+        image: await page.$eval('img.DByuf4', el => el.src).catch(() => null),
+        mrp: await page.$eval('div.yRaY8j', el => parseInt(el.innerText.replace(/[^\d]/g, ''))).catch(() => null),
+        currentPrice: await page.$eval('div.Nx9bqj', el => parseInt(el.innerText.replace(/[^\d]/g, ''))).catch(() => null),
+        discount: await page.$eval("div[class*='UkUFwK'] span", el => {
+          const match = el.innerText.match(/\d+/);
+          return match ? parseInt(match[0]) : null;
+        }).catch(() => null),
+        rating: null
+      };
+    }
+
+    await page.close();
+
+    if (!productData || !productData.title) throw new Error("Flipkart product data not found");
+
+    return {
+      ...productData,
+      lowest: productData.currentPrice,
+      highest: productData.currentPrice,
+      average: productData.currentPrice,
+      time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      platform: "flipkart",
+      productLink: url,
+      amazonLink: "",
+      priceHistory: [
+        { price: productData.currentPrice, date: new Date().toLocaleDateString('en-CA') },
+      ],
+      predictionText: "Prediction data not available yet.",
+    };
+
+  } catch (err) {
+    if (browser) await browser.close();
+    throw err;
+  }
+}
+
+// async function blockExtraResources(page) {
+//   await page.setRequestInterception(true);
+//   page.on("request", (req) => {
+//     const blocked = [
+//       "stylesheet",
+//       "font",
+//       "media",
+//       "websocket",
+//       "manifest"
+//     ];
+//     const blockedDomains = [
+//       "google-analytics.com",
+//       "adsense",
+//       "doubleclick.net",
+//       "amazon-adsystem.com",
+//       "flipkart.net"
+//     ];
+
+//     if (
+//       blocked.includes(req.resourceType()) ||
+//       blockedDomains.some(domain => req.url().includes(domain))
+//     ) {
+//       req.abort();
+//     } else {
+//       req.continue();
+//     }
+//   });
   // page.on('request', (req) => {
   //   const blocked = ['image', 'stylesheet', 'font', 'media'];
   //   if (blocked.includes(req.resourceType())) {
@@ -188,7 +305,7 @@ async function blockExtraResources(page) {
   //     req.continue();
   //   }
   // });
-}
+// }
 
 // let page;
 
@@ -343,7 +460,7 @@ async function scrapeFlipkart(url) {
     
      let productData = null;
 
-    // API intercept listener
+    // Listen for product API response
     page.on("response", async (response) => {
       try {
         const reqUrl = response.url();
@@ -351,6 +468,7 @@ async function scrapeFlipkart(url) {
           const json = await response.json();
           const info = json?.RESPONSE?.data?.productInfo?.value;
           if (info) {
+            console.log("✅ Product API data found");
             productData = {
               title: info?.title || null,
               image: info?.media?.images?.[0]?.url || null,
@@ -361,19 +479,20 @@ async function scrapeFlipkart(url) {
             };
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.log("API parse error:", e.message);
+      }
     });
 
-    console.log("safegoto chl rha hai ");
     await safeGoto(page, url);
-    console.log("safegoto ho gya");
+    console.log("safegoto done");
 
-    // Wait a bit for API to be intercepted
+    // Wait a bit for API intercept
     await page.waitForTimeout(5000);
 
-    // Fallback: DOM scrape if API not found
+    // DOM fallback if API fails
     if (!productData) {
-      console.log("API not found, falling back to DOM scraping...");
+      console.log("⚠️ API not found, falling back to DOM scrape...");
       await page.waitForSelector('span.VU-ZEz', { timeout: 15000 }).catch(() => {});
       productData = {
         title: await page.$eval('span.VU-ZEz', el => el.innerText.trim()).catch(() => null),
