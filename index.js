@@ -364,130 +364,651 @@ async function scrapeAmazon(url) {
     //   predictionText: "Prediction data not available yet.",
     // };;
   } catch (err) {
-    if (browser) await browser.close();
+    if (browser) await page.close();
     throw err;
   }
 }
 async function scrapeFlipkart(url) {
-  let browser, page;
+  let page;
   try {
-    browser = await getBrowser();
+    const browser = await getBrowser();
     page = await browser.newPage();
 
-    await blockExtraResources(page);
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115 Safari/537.36');
+    // ⚠️ Flipkart pe interception disable rakho
+    try {
+      await page.setRequestInterception(false);
+      page.removeAllListeners('request');
+    } catch {}
+
+    await page.setJavaScriptEnabled(true);
+    await page.setExtraHTTPHeaders({
+      'accept-language': 'en-IN,en;q=0.9',
+      'referer': 'https://www.google.com/'
+    });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    );
     await page.setViewport({ width: 1366, height: 768 });
 
-    console.log("Navigating to Flipkart product page…");
-    await safeGoto(page, url);
-    console.log("Page loaded, checking for API data…");
+    // ====== 1) API response listener (BEFORE navigation) ======
+    let apiInfo = null;
+    const apiMatcher = (u) =>
+      u.includes('/api/3/page/dynamic/') ||               // primary
+      (u.includes('/api/3/page/') && u.includes('PRODUCT')); // broader
+
+    page.on('response', async (res) => {
+      try {
+        const u = res.url();
+        if (!apiMatcher(u)) return;
+        if (res.request().method() !== 'GET') return;
+        if (res.status() !== 200) return;
+
+        const ct = res.headers()['content-type'] || '';
+        if (!ct.includes('application/json')) return;
+
+        const json = await res.json();
+        // Deep find product info anywhere in JSON
+        const info = deepFindProductInfo(json);
+        if (info && !apiInfo) apiInfo = info; // take first hit
+      } catch {}
+    });
+
+    console.log('Navigating to Flipkart product page…');
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    // quick anti-bot detection
+    const html = await page.content();
+    if (/captcha|unusual traffic|are you a human|enable javascript/i.test(html)) {
+      throw new Error('Flipkart blocked the request (captcha/anti-bot).');
+    }
+
+    console.log('Page loaded, checking for API / JSON…');
+
+    // Thoda time do API ko (agar fire hua ho)
+    await page.waitForTimeout(3000);
 
     let productData = null;
 
-    try {
-      const apiResponse = await page.waitForResponse(
-        res => res.url().includes('/api/3/page/dynamic/product') && res.status() === 200,
-        { timeout: 7000 }
-      );
-      const json = await apiResponse.json();
-      const info = json?.RESPONSE?.data?.productInfo?.value;
-      if (info) {
-        console.log("  API product data captured");
-        productData = {
-          title: info.title,
-          image: info.media.images[0].url,
-          currentPrice: parseInt(info.pricing.finalPrice.value),
-          mrp: parseInt(info.pricing.strikeOffPrice.value),
-          discount: parseInt(info.pricing.discountPercentage),
-          rating: info.rating.average
-        };
-      }
-    } catch {
-      console.log("  No API data, trying fallback…");
+    // Prefer API info if captured
+    if (apiInfo) {
+      productData = normalizeInfo(apiInfo);
     }
 
-    // Next fallback: structured LD-JSON in page
+    // ====== 2) __NEXT_DATA__ / LD-JSON fallback ======
     if (!productData) {
-      const ldJsonArray = await page.$$eval('script[type="application/ld+json"]', els => els.map(e => e.textContent));
-      for (const text of ldJsonArray) {
-        let obj;
+      // Try window.__NEXT_DATA__ or <script id="__NEXT_DATA__">
+      const nextJson = await page.evaluate(() => {
+        const byId = document.getElementById('__NEXT_DATA__');
+        if (byId?.textContent) return byId.textContent;
+        if (window.__NEXT_DATA__) return JSON.stringify(window.__NEXT_DATA__);
+        return null;
+      });
+
+      if (nextJson) {
         try {
-          obj = JSON.parse(text);
-        } catch { continue; }
-        const arr = Array.isArray(obj) ? obj : [obj];
-        for (const it of arr) {
-          if (it['@type'] === 'Product') {
-            console.log("  LD-JSON Product found");
-            productData = {
-              title: it.name,
-              image: Array.isArray(it.image) ? it.image[0] : it.image,
-              currentPrice: parseInt(it.offers?.price),
-              mrp: null,
-              discount: null,
-              rating: it.aggregateRating?.ratingValue ? parseFloat(it.aggregateRating.ratingValue) : null
-            };
-            break;
-          }
-        }
-        if (productData) break;
+          const json = JSON.parse(nextJson);
+          const info = deepFindProductInfo(json);
+          if (info) productData = normalizeInfo(info);
+        } catch {}
       }
     }
 
-    // Final fallback: DOM scraping
+    // Also scan any LD+JSON scripts
     if (!productData) {
-      console.log("  Fallback to DOM scraping");
-      const t = await page.$eval('span.VU-ZEz, span.B_NuCI', el => el.innerText).catch(() => null);
-      const img = await page.$eval('img.DByuf4, img._396cs4', el => el.src).catch(() => null);
-      const cp = await page.$eval('div.Nx9bqj, div._30jeq3', el => extractNum(el.innerText)).catch(() => null);
-      const mr = await page.$eval('div.yRaY8j, div._3I9_wc', el => extractNum(el.innerText)).catch(() => null);
-      const ds = await page.$eval('div._3Ay6Sb span', el => {
-        const m = el.innerText.match(/\d+/);
-        return m ? parseInt(m[0],10) : null;
-      }).catch(() => null);
-      const rt = await page.$eval('div._3LWZlK', el => parseFloat(el.innerText)).catch(() => null);
-
-      if (!t) {
-        throw new Error("No product title found in DOM");
+      const ldJsonCandidates = await page.$$eval(
+        'script[type="application/ld+json"]',
+        els => els.map(e => e.textContent).filter(Boolean)
+      );
+      for (const txt of ldJsonCandidates) {
+        try {
+          const obj = JSON.parse(txt);
+          const arr = Array.isArray(obj) ? obj : [obj];
+          for (const it of arr) {
+            if (it['@type'] === 'Product') {
+              productData = {
+                title: it.name || null,
+                image: Array.isArray(it.image) ? it.image?.[0] : it.image || null,
+                currentPrice: it.offers?.price ? parseInt(String(it.offers.price).replace(/[^\d]/g,''),10) : null,
+                mrp: null,
+                discount: null,
+                rating: it.aggregateRating?.ratingValue ? parseFloat(it.aggregateRating.ratingValue) : null
+              };
+              break;
+            }
+          }
+          if (productData) break;
+        } catch {}
       }
+    }
 
-      productData = {
-        title: t,
-        image: img,
-        currentPrice: cp,
-        mrp: mr,
-        discount: ds,
-        rating: rt
-      };
+    // ====== 3) DOM fallback (wide selectors) ======
+    if (!productData) {
+      console.log('  DOM fallback…');
+      productData = await page.evaluate(() => {
+        const pickText = (sels) => {
+          for (const s of sels) {
+            const el = document.querySelector(s);
+            if (el && el.innerText?.trim()) return el.innerText.trim();
+          }
+          return null;
+        };
+        const pickSrc = (sels) => {
+          for (const s of sels) {
+            const el = document.querySelector(s);
+            if (el && el.src) return el.src;
+          }
+          return null;
+        };
+        const nums = (t) => {
+          if (!t) return null;
+          const n = t.replace(/[^\d]/g,'');
+          return n ? parseInt(n,10) : null;
+        };
+
+        const title = pickText([
+          'span.VU-ZEz',
+          'span.B_NuCI',
+          'h1._6EBuvT',
+          'h1',
+          'div.C7fEHH',
+          '[data-testid="product-title"]',
+          'h1[title]'
+        ]);
+
+        const priceText = pickText([
+          'div.Nx9bqj',
+          'div._30jeq3',
+          'div._16Jk6d',
+          '[data-testid="product-price"]'
+        ]);
+
+        const mrpText = pickText([
+          'div.yRaY8j',
+          'div._3I9_wc',
+          '[data-testid="product-mrp"]'
+        ]);
+
+        const discountText = pickText([
+          'div.UkUFwK span',
+          'div._3Ay6Sb span'
+        ]);
+
+        const ratingText = pickText([
+          'div._3LWZlK',
+          '[itemprop="ratingValue"]'
+        ]);
+
+        const image = pickSrc([
+          'img.DByuf4',
+          'img._396cs4',
+          'img[loading][src]',
+          'img'
+        ]);
+
+        const price = nums(priceText);
+        const mrp   = nums(mrpText);
+        const disc  = discountText ? (discountText.match(/\d+/)?.[0] ? parseInt(discountText.match(/\d+/)[0],10) : null) : null;
+        const rating= ratingText ? parseFloat(ratingText.replace(/[^\d.]/g,'')) : null;
+
+        return { title, image, currentPrice: price, mrp, discount: disc, rating };
+      });
+
+      // If still no title, try a mobile UA + mobile URL fallback once
+      if (!productData?.title) {
+        // Mobile fallback
+        const toMobile = (u) => {
+          try {
+            const urlObj = new URL(u);
+            urlObj.hostname = 'm.flipkart.com';
+            return urlObj.toString();
+          } catch { return u; }
+        };
+
+        await page.setUserAgent(
+          'Mozilla/5.0 (Linux; Android 12; Pixel 5) AppleWebKit/537.36 ' +
+          '(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
+        );
+
+        const mUrl = toMobile(url);
+        console.log('  Mobile fallback…');
+        await page.goto(mUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForTimeout(2000);
+
+        const mobileData = await page.evaluate(() => {
+          const pickText = (sels) => {
+            for (const s of sels) {
+              const el = document.querySelector(s);
+              if (el && el.innerText?.trim()) return el.innerText.trim();
+            }
+            return null;
+          };
+          const pickSrc = (sels) => {
+            for (const s of sels) {
+              const el = document.querySelector(s);
+              if (el && el.src) return el.src;
+            }
+            return null;
+          };
+          const nums = (t) => {
+            if (!t) return null;
+            const n = t.replace(/[^\d]/g,'');
+            return n ? parseInt(n,10) : null;
+          };
+
+          const title = pickText(['h1','span[title]','[data-testid="product-title"]']);
+          const priceText = pickText(['div.Nx9bqj','div._30jeq3','[data-testid="product-price"]']);
+          const mrpText   = pickText(['div.yRaY8j','div._3I9_wc','[data-testid="product-mrp"]']);
+          const discText  = pickText(['div.UkUFwK span','div._3Ay6Sb span']);
+          const image     = pickSrc(['img[loading][src]','img']);
+
+          return {
+            title,
+            image,
+            currentPrice: nums(priceText),
+            mrp: nums(mrpText),
+            discount: discText ? (discText.match(/\d+/)?.[0] ? parseInt(discText.match(/\d+/)[0],10) : null) : null,
+            rating: null
+          };
+        });
+
+        if (mobileData?.title) productData = mobileData;
+      }
+    }
+
+    if (!productData || !productData.title) {
+      throw new Error('Flipkart product data not found');
     }
 
     await page.close();
 
+    // normalize output format
+    const cur = productData.currentPrice ?? null;
     return {
-      ...productData,
-      lowest: productData.currentPrice,
-      highest: productData.currentPrice,
-      average: productData.currentPrice,
-      time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-      platform: "flipkart",
+      title: productData.title || null,
+      image: productData.image || null,
+      currentPrice: cur,
+      mrp: productData.mrp ?? null,
+      lowest: cur,
+      highest: cur,
+      average: cur,
+      discount: productData.discount ?? null,
+      rating: productData.rating ?? null,
+      time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      platform: 'flipkart',
       productLink: url,
-      amazonLink: "",
-      priceHistory: [{ price: productData.currentPrice, date: new Date().toLocaleDateString("en-CA") }],
-      predictionText: "Data via scraper"
+      amazonLink: '',
+      priceHistory: [{ price: cur, date: new Date().toLocaleDateString('en-CA') }],
+      predictionText: 'Prediction data not available yet.'
     };
 
   } catch (err) {
-    console.error("Error in scrapeFlipkart:", err.message);
-    if (page) await page.close();
+    console.error('scrapeFlipkart error:', err.message);
+    if (page && !page.isClosed()) { try { await page.close(); } catch {} }
     throw err;
-  } finally {
-    if (browser) await browser.close();
   }
 }
 
-function extractNum(text) {
-  if (!text) return null;
-  const n = text.replace(/[^\d]/g, "");
-  return n ? parseInt(n, 10) : null;
+// ---------- helpers ----------
+function normalizeInfo(info) {
+  const num = (v) => (v==null ? null : parseInt(String(v).replace(/[^\d]/g,''),10) || null);
+  return {
+    title: info?.title ?? null,
+    image: info?.media?.images?.[0]?.url ?? null,
+    currentPrice: num(info?.pricing?.finalPrice?.value),
+    mrp: num(info?.pricing?.strikeOffPrice?.value),
+    discount: info?.pricing?.discountPercentage != null ? parseInt(info.pricing.discountPercentage,10) : null,
+    rating: info?.rating?.average != null ? parseFloat(info.rating.average) : null
+  };
+}
+
+function deepFindProductInfo(root) {
+  const seen = new WeakSet();
+  const isObj = (x) => x && typeof x === 'object';
+  function walk(node) {async function scrapeFlipkart(url) {
+  let page;
+  try {
+    const browser = await getBrowser();
+    page = await browser.newPage();
+
+    // ⚠️ Flipkart pe interception disable rakho
+    try {
+      await page.setRequestInterception(false);
+      page.removeAllListeners('request');
+    } catch {}
+
+    await page.setJavaScriptEnabled(true);
+    await page.setExtraHTTPHeaders({
+      'accept-language': 'en-IN,en;q=0.9',
+      'referer': 'https://www.google.com/'
+    });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    );
+    await page.setViewport({ width: 1366, height: 768 });
+
+    // ====== 1) API response listener (BEFORE navigation) ======
+    let apiInfo = null;
+    const apiMatcher = (u) =>
+      u.includes('/api/3/page/dynamic/') ||               // primary
+      (u.includes('/api/3/page/') && u.includes('PRODUCT')); // broader
+
+    page.on('response', async (res) => {
+      try {
+        const u = res.url();
+        if (!apiMatcher(u)) return;
+        if (res.request().method() !== 'GET') return;
+        if (res.status() !== 200) return;
+
+        const ct = res.headers()['content-type'] || '';
+        if (!ct.includes('application/json')) return;
+
+        const json = await res.json();
+        // Deep find product info anywhere in JSON
+        const info = deepFindProductInfo(json);
+        if (info && !apiInfo) apiInfo = info; // take first hit
+      } catch {}
+    });
+
+    console.log('Navigating to Flipkart product page…');
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    // quick anti-bot detection
+    const html = await page.content();
+    if (/captcha|unusual traffic|are you a human|enable javascript/i.test(html)) {
+      throw new Error('Flipkart blocked the request (captcha/anti-bot).');
+    }
+
+    console.log('Page loaded, checking for API / JSON…');
+
+    // Thoda time do API ko (agar fire hua ho)
+    await page.waitForTimeout(3000);
+
+    let productData = null;
+
+    // Prefer API info if captured
+    if (apiInfo) {
+      productData = normalizeInfo(apiInfo);
+    }
+
+    // ====== 2) __NEXT_DATA__ / LD-JSON fallback ======
+    if (!productData) {
+      // Try window.__NEXT_DATA__ or <script id="__NEXT_DATA__">
+      const nextJson = await page.evaluate(() => {
+        const byId = document.getElementById('__NEXT_DATA__');
+        if (byId?.textContent) return byId.textContent;
+        if (window.__NEXT_DATA__) return JSON.stringify(window.__NEXT_DATA__);
+        return null;
+      });
+
+      if (nextJson) {
+        try {
+          const json = JSON.parse(nextJson);
+          const info = deepFindProductInfo(json);
+          if (info) productData = normalizeInfo(info);
+        } catch {}
+      }
+    }
+
+    // Also scan any LD+JSON scripts
+    if (!productData) {
+      const ldJsonCandidates = await page.$$eval(
+        'script[type="application/ld+json"]',
+        els => els.map(e => e.textContent).filter(Boolean)
+      );
+      for (const txt of ldJsonCandidates) {
+        try {
+          const obj = JSON.parse(txt);
+          const arr = Array.isArray(obj) ? obj : [obj];
+          for (const it of arr) {
+            if (it['@type'] === 'Product') {
+              productData = {
+                title: it.name || null,
+                image: Array.isArray(it.image) ? it.image?.[0] : it.image || null,
+                currentPrice: it.offers?.price ? parseInt(String(it.offers.price).replace(/[^\d]/g,''),10) : null,
+                mrp: null,
+                discount: null,
+                rating: it.aggregateRating?.ratingValue ? parseFloat(it.aggregateRating.ratingValue) : null
+              };
+              break;
+            }
+          }
+          if (productData) break;
+        } catch {}
+      }
+    }
+
+    // ====== 3) DOM fallback (wide selectors) ======
+    if (!productData) {
+      console.log('  DOM fallback…');
+      productData = await page.evaluate(() => {
+        const pickText = (sels) => {
+          for (const s of sels) {
+            const el = document.querySelector(s);
+            if (el && el.innerText?.trim()) return el.innerText.trim();
+          }
+          return null;
+        };
+        const pickSrc = (sels) => {
+          for (const s of sels) {
+            const el = document.querySelector(s);
+            if (el && el.src) return el.src;
+          }
+          return null;
+        };
+        const nums = (t) => {
+          if (!t) return null;
+          const n = t.replace(/[^\d]/g,'');
+          return n ? parseInt(n,10) : null;
+        };
+
+        const title = pickText([
+          'span.VU-ZEz',
+          'span.B_NuCI',
+          'h1._6EBuvT',
+          'h1',
+          'div.C7fEHH',
+          '[data-testid="product-title"]',
+          'h1[title]'
+        ]);
+
+        const priceText = pickText([
+          'div.Nx9bqj',
+          'div._30jeq3',
+          'div._16Jk6d',
+          '[data-testid="product-price"]'
+        ]);
+
+        const mrpText = pickText([
+          'div.yRaY8j',
+          'div._3I9_wc',
+          '[data-testid="product-mrp"]'
+        ]);
+
+        const discountText = pickText([
+          'div.UkUFwK span',
+          'div._3Ay6Sb span'
+        ]);
+
+        const ratingText = pickText([
+          'div._3LWZlK',
+          '[itemprop="ratingValue"]'
+        ]);
+
+        const image = pickSrc([
+          'img.DByuf4',
+          'img._396cs4',
+          'img[loading][src]',
+          'img'
+        ]);
+
+        const price = nums(priceText);
+        const mrp   = nums(mrpText);
+        const disc  = discountText ? (discountText.match(/\d+/)?.[0] ? parseInt(discountText.match(/\d+/)[0],10) : null) : null;
+        const rating= ratingText ? parseFloat(ratingText.replace(/[^\d.]/g,'')) : null;
+
+        return { title, image, currentPrice: price, mrp, discount: disc, rating };
+      });
+
+      // If still no title, try a mobile UA + mobile URL fallback once
+      if (!productData?.title) {
+        // Mobile fallback
+        const toMobile = (u) => {
+          try {
+            const urlObj = new URL(u);
+            urlObj.hostname = 'm.flipkart.com';
+            return urlObj.toString();
+          } catch { return u; }
+        };
+
+        await page.setUserAgent(
+          'Mozilla/5.0 (Linux; Android 12; Pixel 5) AppleWebKit/537.36 ' +
+          '(KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
+        );
+
+        const mUrl = toMobile(url);
+        console.log('  Mobile fallback…');
+        await page.goto(mUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForTimeout(2000);
+
+        const mobileData = await page.evaluate(() => {
+          const pickText = (sels) => {
+            for (const s of sels) {
+              const el = document.querySelector(s);
+              if (el && el.innerText?.trim()) return el.innerText.trim();
+            }
+            return null;
+          };
+          const pickSrc = (sels) => {
+            for (const s of sels) {
+              const el = document.querySelector(s);
+              if (el && el.src) return el.src;
+            }
+            return null;
+          };
+          const nums = (t) => {
+            if (!t) return null;
+            const n = t.replace(/[^\d]/g,'');
+            return n ? parseInt(n,10) : null;
+          };
+
+          const title = pickText(['h1','span[title]','[data-testid="product-title"]']);
+          const priceText = pickText(['div.Nx9bqj','div._30jeq3','[data-testid="product-price"]']);
+          const mrpText   = pickText(['div.yRaY8j','div._3I9_wc','[data-testid="product-mrp"]']);
+          const discText  = pickText(['div.UkUFwK span','div._3Ay6Sb span']);
+          const image     = pickSrc(['img[loading][src]','img']);
+
+          return {
+            title,
+            image,
+            currentPrice: nums(priceText),
+            mrp: nums(mrpText),
+            discount: discText ? (discText.match(/\d+/)?.[0] ? parseInt(discText.match(/\d+/)[0],10) : null) : null,
+            rating: null
+          };
+        });
+
+        if (mobileData?.title) productData = mobileData;
+      }
+    }
+
+    if (!productData || !productData.title) {
+      throw new Error('Flipkart product data not found');
+    }
+
+    await page.close();
+
+    // normalize output format
+    const cur = productData.currentPrice ?? null;
+    return {
+      title: productData.title || null,
+      image: productData.image || null,
+      currentPrice: cur,
+      mrp: productData.mrp ?? null,
+      lowest: cur,
+      highest: cur,
+      average: cur,
+      discount: productData.discount ?? null,
+      rating: productData.rating ?? null,
+      time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      platform: 'flipkart',
+      productLink: url,
+      amazonLink: '',
+      priceHistory: [{ price: cur, date: new Date().toLocaleDateString('en-CA') }],
+      predictionText: 'Prediction data not available yet.'
+    };
+
+  } catch (err) {
+    console.error('scrapeFlipkart error:', err.message);
+    if (page && !page.isClosed()) { try { await page.close(); } catch {} }
+    throw err;
+  }
+}
+
+// ---------- helpers ----------
+function normalizeInfo(info) {
+  const num = (v) => (v==null ? null : parseInt(String(v).replace(/[^\d]/g,''),10) || null);
+  return {
+    title: info?.title ?? null,
+    image: info?.media?.images?.[0]?.url ?? null,
+    currentPrice: num(info?.pricing?.finalPrice?.value),
+    mrp: num(info?.pricing?.strikeOffPrice?.value),
+    discount: info?.pricing?.discountPercentage != null ? parseInt(info.pricing.discountPercentage,10) : null,
+    rating: info?.rating?.average != null ? parseFloat(info.rating.average) : null
+  };
+}
+
+function deepFindProductInfo(root) {
+  const seen = new WeakSet();
+  const isObj = (x) => x && typeof x === 'object';
+  function walk(node) {
+    if (!isObj(node) || seen.has(node)) return null;
+    seen.add(node);
+
+    // Direct known shapes
+    if (node.productInfo?.value) return node.productInfo.value;
+    if (node.title && node.pricing && node.media) return node;
+
+    for (const k in node) {
+      const v = node[k];
+      if (isObj(v)) {
+        const hit = walk(v);
+        if (hit) return hit;
+      } else if (Array.isArray(v)) {
+        for (const it of v) {
+          const hit = walk(it);
+          if (hit) return hit;
+        }
+      }
+    }
+    return null;
+  }
+  return walk(root);
+}
+
+    if (!isObj(node) || seen.has(node)) return null;
+    seen.add(node);
+
+    // Direct known shapes
+    if (node.productInfo?.value) return node.productInfo.value;
+    if (node.title && node.pricing && node.media) return node;
+
+    for (const k in node) {
+      const v = node[k];
+      if (isObj(v)) {
+        const hit = walk(v);
+        if (hit) return hit;
+      } else if (Array.isArray(v)) {
+        for (const it of v) {
+          const hit = walk(it);
+          if (hit) return hit;
+        }
+      }
+    }
+    return null;
+  }
+  return walk(root);
 }
 
 
