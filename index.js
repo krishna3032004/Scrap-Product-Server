@@ -420,225 +420,229 @@ app.get('/scrape', async (req, res) => {
 
 
 app.use(express.json());
-// app.post('/api/scrape-prices', async (req, res) => {
-//   const { urls } = req.body;
-//   console.log("run huakya")
-
-//   if (!urls || !Array.isArray(urls)) {
-//     return res.status(400).json({ error: "URLs array is required" });
-//   }
-
-//   const results = [];
-//   let browser;
-//   // let page;
-
-//   try {
-//     browser = await getBrowser();
-//     console.log("browser to ho gya")
-//     // await page.setUserAgent(
-//     //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
-//     // );
-//     // console.log("user agent ho gya")
-//     // await page.setExtraHTTPHeaders({
-//     //   'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
-//     // });
-//     // console.log("extra http header lg gye")
-//     // await page.setViewport({ width: 1366, height: 768 });
-
-
-
-
-//     // browser = await puppeteer.launch({
-//     //   headless: true,
-//     //   args: ['--no-sandbox', '--disable-setuid-sandbox'],
-//     // });
-
-
-//     for (const item of urls) {
-//       const url = item.productLink;
-//       try {
-
-//         const page = await browser.newPage();
-//         await page.setUserAgent(
-//           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
-//         );
-//         console.log("user agent ho gya")
-//         await page.setExtraHTTPHeaders({
-//           'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
-//         });
-//         console.log("extra http header lg gye")
-//         await page.setViewport({ width: 1366, height: 768 });
-//         // await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-
-//         if (!url) {
-//           results.push({ url: null, price: null });
-//           continue;
-//         }
-//         let price = null;
-
-//         if (url.includes("amazon")) {
-//           console.log(url)
-//           await safeGotoforamazon(page, url)
-//           try {
-//             // await page.waitForSelector('#productTitle', { timeout: 0 });
-//             await page.waitForFunction(() => {
-//               return document.querySelector('#productTitle') ||
-//                 document.querySelector('#titleSection') ||
-//                 document.querySelector('h1');
-//             }, { timeout: 30000 });
-//           } catch {
-//             console.log("Title not found in time, trying alternative selector...");
-//           }
-//           price = await page
-//             .$eval(
-//               ".a-price-whole",
-//               el => el.innerText
-//             )
-//             .catch(() => null);
-//           console.log(price)
-//         } else if (url.includes("flipkart")) {
-//           console.log(url)
-//           await safeGoto(page, url)
-
-//           // await page.evaluate(() => window.scrollBy(0, 1000));
-//           // await new Promise(r => setTimeout(r, 1500));
-//           // await page.waitForFunction(() => {
-//           //   return document.querySelector(".Nx9bqj") ||
-//           //     document.querySelector(".UOcV3E") ||
-//           //     document.querySelector("._30jeq3");
-//           // }, { timeout: 30000 });
-//           // price = await page
-//           //   .$eval(".Nx9bqj", el => el.innerText)
-//           //   .catch(() => null);
-//           // console.log(price)
-//           try {
-//             await page.waitForFunction(() => {
-//               const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
-//               return el && el.innerText.match(/₹|\d/);
-//             }, { timeout: 20000 });
-
-//             price = await page.evaluate(() => {
-//               const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
-//               return el ? el.innerText : null;
-//             });
-//           } catch {
-//             price = null;
-//           }
-//         }
-
-//         if (price) {
-//           price = parseInt(price.replace(/[₹,]/g, ""));
-//         }
-
-//         results.push({ url, price: price || null });
-
-//         await page.close();
-//       } catch (err) {
-//         console.error(`Error scraping ${url}:`, err);
-//         results.push({ url, price: null });
-//       }
-//     }
-//     console.log(results)
-
-//     // await page.close();
-//     res.json({ results });
-//   } catch (err) {
-//     console.error("Scraping error:", err);
-//     res.status(500).json({ error: "Failed to scrape URLs" });
-
-//     // if (browser) await page.close();
-//   }
-// });
-// Block heavy resources for faster scraping
-async function blockResources(page) {
-  await page.setRequestInterception(true);
-  page.on("request", (req) => {
-    const blockedTypes = ["stylesheet", "font", "media", "websocket", "manifest"];
-    if (blockedTypes.includes(req.resourceType())) req.abort();
-    else req.continue();
-  });
-}
-
-
-// Fast scrape single Flipkart/Amazon product
-async function scrapeProduct({ productLink }) {
-  const page = await (await getBrowser()).newPage();
-  const url = productLink;
-  console.log(url)
-  console.log("chlo browser khul gya")
-  await blockResources(page);
-  console.log("block ho gya")
-
-  await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
-  );
-  await page.setViewport({ width: 1366, height: 768 });
-
-  await page.setExtraHTTPHeaders({
-    'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
-  });
-  console.log("goto pai pahcuh gye")
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(1000); // minimal wait
-
-  let price = null;
-
-  if (url.includes("flipkart")) {
-    try {
-      price = await page.evaluate(() => {
-        const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
-        return el ? el.innerText.replace(/[₹,]/g, "") : null;
-      });
-      price = price ? parseInt(price) : null;
-    } catch {}
-  } else if (url.includes("amazon")) {
-    try {
-      price = await page.evaluate(() => {
-        const el = document.querySelector(".a-price-whole");
-        return el ? el.innerText.replace(/[₹,]/g, "") : null;
-      });
-      price = price ? parseInt(price) : null;
-    } catch {}
-  }
-  console.log(price)
-
-  await page.close();
-  return {  url, price };
-}
-
-// API to scrape multiple products fast (parallel)
-app.post("/api/scrape-prices", async (req, res) => {
-   const { urls } = req.body;
+app.post('/api/scrape-prices', async (req, res) => {
+  const { urls } = req.body;
   console.log("run huakya")
 
   if (!urls || !Array.isArray(urls)) {
     return res.status(400).json({ error: "URLs array is required" });
   }
-  // const { products } = req.body; // [{ productId, url }]
-  // if (!products || !Array.isArray(products)) return res.status(400).json({ error: "products array required" });
-  console.log(urls)
+
+  const results = [];
+  let browser;
+  // let page;
 
   try {
-    // Parallel scraping (limit concurrency to 5–10 to avoid memory issues)
-    const results = [];
-    const concurrency = 2;
-    for (let i = 0; i < urls.length; i += concurrency) {
-      console.log(i)
-      console.log(i+concurrency)
-      const batch = urls.slice(i, i + concurrency);
-      console.log(batch)
-      const batchResults = await Promise.all(batch.map(scrapeProduct));
-      console.log(batchResults)
-      results.push(...batchResults);
-    }
+    browser = await getBrowser();
+    console.log("browser to ho gya")
+    // await page.setUserAgent(
+    //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+    // );
+    // console.log("user agent ho gya")
+    // await page.setExtraHTTPHeaders({
+    //   'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
+    // });
+    // console.log("extra http header lg gye")
+    // await page.setViewport({ width: 1366, height: 768 });
 
+
+
+
+    // browser = await puppeteer.launch({
+    //   headless: true,
+    //   args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    // });
+
+
+    for (const item of urls) {
+      const url = item.productLink;
+      try {
+
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+        );
+        console.log("user agent ho gya")
+        await page.setExtraHTTPHeaders({
+          'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
+        });
+        console.log("extra http header lg gye")
+        await page.setViewport({ width: 1366, height: 768 });
+        // await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+        if (!url) {
+          results.push({ url: null, price: null });
+          continue;
+        }
+        let price = null;
+
+        if (url.includes("amazon")) {
+          console.log(url)
+          await safeGotoforamazon(page, url)
+          try {
+            // await page.waitForSelector('#productTitle', { timeout: 0 });
+            await page.waitForFunction(() => {
+              return document.querySelector('#productTitle') ||
+                document.querySelector('#titleSection') ||
+                document.querySelector('h1');
+            }, { timeout: 30000 });
+          } catch {
+            console.log("Title not found in time, trying alternative selector...");
+          }
+          price = await page
+            .$eval(
+              ".a-price-whole",
+              el => el.innerText
+            )
+            .catch(() => null);
+          console.log(price)
+        } else if (url.includes("flipkart")) {
+          console.log(url)
+          await safeGoto(page, url)
+
+          // await page.evaluate(() => window.scrollBy(0, 1000));
+          // await new Promise(r => setTimeout(r, 1500));
+          // await page.waitForFunction(() => {
+          //   return document.querySelector(".Nx9bqj") ||
+          //     document.querySelector(".UOcV3E") ||
+          //     document.querySelector("._30jeq3");
+          // }, { timeout: 30000 });
+          // price = await page
+          //   .$eval(".Nx9bqj", el => el.innerText)
+          //   .catch(() => null);
+          // console.log(price)
+          try {
+            await page.waitForFunction(() => {
+              const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
+              return el && el.innerText.match(/₹|\d/);
+            }, { timeout: 20000 });
+
+            price = await page.evaluate(() => {
+              const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
+              return el ? el.innerText : null;
+            });
+          } catch {
+            price = null;
+          }
+        }
+
+        if (price) {
+          price = parseInt(price.replace(/[₹,]/g, ""));
+        }
+
+        results.push({ url, price: price || null });
+
+        await page.close();
+      } catch (err) {
+        console.error(`Error scraping ${url}:`, err);
+        results.push({ url, price: null });
+      }
+    }
     console.log(results)
+
+    // await page.close();
     res.json({ results });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Scraping failed" });
+    console.error("Scraping error:", err);
+    res.status(500).json({ error: "Failed to scrape URLs" });
+
+    // if (browser) await page.close();
   }
 });
+// Block heavy resources for faster scraping
+
+
+
+
+// async function blockResources(page) {
+//   await page.setRequestInterception(true);
+//   page.on("request", (req) => {
+//     const blockedTypes = ["stylesheet", "font", "media", "websocket", "manifest"];
+//     if (blockedTypes.includes(req.resourceType())) req.abort();
+//     else req.continue();
+//   });
+// }
+
+
+// // Fast scrape single Flipkart/Amazon product
+// async function scrapeProduct({ productLink }) {
+//   const page = await (await getBrowser()).newPage();
+//   const url = productLink;
+//   console.log(url)
+//   console.log("chlo browser khul gya")
+//   await blockResources(page);
+//   console.log("block ho gya")
+
+//   await page.setUserAgent(
+//     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+//   );
+//   await page.setViewport({ width: 1366, height: 768 });
+
+//   await page.setExtraHTTPHeaders({
+//     'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
+//   });
+//   console.log("goto pai pahcuh gye")
+//   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+//   await page.waitForTimeout(1000); // minimal wait
+
+//   let price = null;
+
+//   if (url.includes("flipkart")) {
+//     try {
+//       price = await page.evaluate(() => {
+//         const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
+//         return el ? el.innerText.replace(/[₹,]/g, "") : null;
+//       });
+//       price = price ? parseInt(price) : null;
+//     } catch {}
+//   } else if (url.includes("amazon")) {
+//     try {
+//       price = await page.evaluate(() => {
+//         const el = document.querySelector(".a-price-whole");
+//         return el ? el.innerText.replace(/[₹,]/g, "") : null;
+//       });
+//       price = price ? parseInt(price) : null;
+//     } catch {}
+//   }
+//   console.log(price)
+
+//   await page.close();
+//   return {  url, price };
+// }
+
+// // API to scrape multiple products fast (parallel)
+// app.post("/api/scrape-prices", async (req, res) => {
+//    const { urls } = req.body;
+//   console.log("run huakya")
+
+//   if (!urls || !Array.isArray(urls)) {
+//     return res.status(400).json({ error: "URLs array is required" });
+//   }
+//   // const { products } = req.body; // [{ productId, url }]
+//   // if (!products || !Array.isArray(products)) return res.status(400).json({ error: "products array required" });
+//   console.log(urls)
+
+//   try {
+//     // Parallel scraping (limit concurrency to 5–10 to avoid memory issues)
+//     const results = [];
+//     const concurrency = 2;
+//     for (let i = 0; i < urls.length; i += concurrency) {
+//       console.log(i)
+//       console.log(i+concurrency)
+//       const batch = urls.slice(i, i + concurrency);
+//       console.log(batch)
+//       const batchResults = await Promise.all(batch.map(scrapeProduct));
+//       console.log(batchResults)
+//       results.push(...batchResults);
+//     }
+
+//     console.log(results)
+//     res.json({ results });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Scraping failed" });
+//   }
+// });
 
 app.listen(PORT, () => {
   console.log(`Scraping server running on port ${PORT}`);
