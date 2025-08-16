@@ -481,54 +481,51 @@ async function scrapeFlipkart(url) {
     console.log("safegoto pai ja rha")
     await safeGoto(page, url);
     console.log("safegoto ho gya")
-    price = await page
-      .$eval(".Nx9bqj", el => el.innerText)
-      .catch(() => null);
-    console.log(price)
+    
     // await new Promise(r => setTimeout(r, 5000));
     // // Optional: scroll a bit to avoid lazy-loading
     // await page.evaluate(() => window.scrollBy(0, 500));
 
 
-    // await page.waitForSelector('span.VU-ZEz', { timeout: 0 });
+    await page.waitForSelector('span.VU-ZEz', { timeout: 20000 });
     // await safeGoto(page, url);
     // Wait for Next.js data script
     // console.log("waitforselector pai ja rahe")
     // Try to extract JSON from __NEXT_DATA__ (Next.js embedded data)
     // Try extracting title from common places
-    // const result = await page.evaluate(() => {
-    //   const title = document.querySelector('span.VU-ZEz')?.innerText.trim() || null;
-    //   const image = document.querySelector('img.DByuf4')?.src || null;
-    //   const mrpText = document.querySelector('div.yRaY8j')?.innerText || '';
-    //   const mrp = parseInt(mrpText.replace(/[^\d]/g, '')) || null;
-    //   const priceText = document.querySelector('div.Nx9bqj')?.innerText || '';
-    //   const price = parseInt(priceText.replace(/[^\d]/g, '')) || null;
-    //   const discountText = document.querySelector("div[class*='UkUFwK'] span")?.innerText || '';
-    //   const discountMatch = discountText.match(/\d+/);
-    //   const discount = discountMatch ? parseInt(discountMatch[0]) : null;
-    //   return { title, image, mrp, price, discount };
-    // });
+    const result = await page.evaluate(() => {
+      const title = document.querySelector('span.VU-ZEz')?.innerText.trim() || null;
+      const image = document.querySelector('img.DByuf4')?.src || null;
+      const mrpText = document.querySelector('div.yRaY8j')?.innerText || '';
+      const mrp = parseInt(mrpText.replace(/[^\d]/g, '')) || null;
+      const priceText = document.querySelector('div.Nx9bqj')?.innerText || '';
+      const price = parseInt(priceText.replace(/[^\d]/g, '')) || null;
+      const discountText = document.querySelector("div[class*='UkUFwK'] span")?.innerText || '';
+      const discountMatch = discountText.match(/\d+/);
+      const discount = discountMatch ? parseInt(discountMatch[0]) : null;
+      return { title, image, mrp, price, discount };
+    });
 
     await page.close();
 
-    return null;
-    // return {
-    //   title: result.title,
-    //   image: result.image,
-    //   currentPrice: result.price,
-    //   mrp: result.mrp,
-    //   lowest: result.price,
-    //   highest: result.price,
-    //   average: result.price,
-    //   discount: result.discount,
-    //   rating: 4, time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+    // return null;
+    return {
+      title: result.title,
+      image: result.image,
+      currentPrice: result.price,
+      mrp: result.mrp,
+      lowest: result.price,
+      highest: result.price,
+      average: result.price,
+      discount: result.discount,
+      rating: 4, time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
 
-    //   platform: "flipkart", productLink: url,
-    //   amazonLink: "",
-    //   priceHistory: [{ price: result.price, date: new Date().toLocaleDateString('en-CA') },],
+      platform: "flipkart", productLink: url,
+      amazonLink: "",
+      priceHistory: [{ price: result.price, date: new Date().toLocaleDateString('en-CA') },],
 
-    //   predictionText: "Prediction data not available yet.",
-    // };
+      predictionText: "Prediction data not available yet.",
+    };
   } catch (err) {
     if (page) await page.close();
     throw err;
