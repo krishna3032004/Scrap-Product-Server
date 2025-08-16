@@ -561,8 +561,10 @@ async function blockResources(page) {
 
 
 // Fast scrape single Flipkart/Amazon product
-async function scrapeProduct({ url }) {
+async function scrapeProduct({ productLink }) {
   const page = await (await getBrowser()).newPage();
+  const url = productLink;
+  console.log(url)
   console.log("chlo browser khul gya")
   await blockResources(page);
   console.log("block ho gya")
