@@ -621,7 +621,7 @@ app.post("/api/scrape-prices", async (req, res) => {
   try {
     // Parallel scraping (limit concurrency to 5–10 to avoid memory issues)
     const results = [];
-    const concurrency = 5;
+    const concurrency = 2;
     for (let i = 0; i < urls.length; i += concurrency) {
       console.log(i)
       console.log(i+concurrency)
