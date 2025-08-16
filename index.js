@@ -503,7 +503,7 @@ app.post('/api/scrape-prices', async (req, res) => {
           await page.evaluate(() => window.scrollBy(0, 1000));
           await new Promise(r => setTimeout(r, 1500));
 
-          await page.waitForSelector('span.VU-ZEz', { timeout: 20000 });
+          await page.waitForSelector('span.VU-ZEz', { timeout: 30000 });
           price = await page
             .$eval(".Nx9bqj", el => el.innerText)
             .catch(() => null);
