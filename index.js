@@ -465,10 +465,9 @@ async function scrapeFlipkarts(url) {
 
 async function scrapeFlipkart(url) {
   let browser;
-  let page;
   try {
     browser = await getBrowser();
-    page = await browser.newPage();
+    const page = await browser.newPage();
 
     await blockExtraResourcesflipkart(page);
     await page.setUserAgent(
