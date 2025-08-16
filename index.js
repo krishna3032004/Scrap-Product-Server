@@ -487,9 +487,9 @@ async function scrapeFlipkart(url) {
     console.log("safegoto pai ja rha")
     await safeGoto(page, url);
     console.log("safegoto ho gya")
-    const im =await page.screenshot({ path: "debug.png"});
+    // const im =await page.screenshot({ path: "debug.png"});
     console.log("Screenshot captured: debug.png");
-    console.log(im)
+    // console.log(im)
 
     // await new Promise(r => setTimeout(r, 5000));
     // // Optional: scroll a bit to avoid lazy-loading
