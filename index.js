@@ -1,10 +1,9 @@
 import express from 'express';
 import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer";
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import puppeteerExtra from 'puppeteer-extra';
 
-import vanillaPuppeteer from "puppeteer"; // to get correct executablePath
+// import vanillaPuppeteer from "puppeteer"; // to get correct executablePath
 
 
 puppeteerExtra.use(StealthPlugin());
@@ -46,9 +45,9 @@ async function safeGoto(page, url, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
       await page.goto(url, {
-        // waitUntil: "networkidle2",
-        waitUntil: "domcontentloaded",
-        timeout: 20000
+        waitUntil: "networkidle2",
+        // waitUntil: "domcontentloaded",
+        timeout: 30000
       });
       return;
     } catch (err) {
@@ -471,9 +470,16 @@ async function scrapeFlipkart(url) {
 
     await blockExtraResourcesflipkart(page);
     await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
     );
+    await page.setExtraHTTPHeaders({
+      'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
+    });
+    // await page.setUserAgent(
+    //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
+    // );
     await page.setViewport({ width: 1366, height: 768 });
+
 
 
 
@@ -481,11 +487,16 @@ async function scrapeFlipkart(url) {
     console.log("safegoto pai ja rha")
     await safeGoto(page, url);
     console.log("safegoto ho gya")
-    
+    await page.screenshot({ path: "debug.png", fullPage: true });
+    console.log("Screenshot captured: debug.png");
+
     // await new Promise(r => setTimeout(r, 5000));
     // // Optional: scroll a bit to avoid lazy-loading
     // await page.evaluate(() => window.scrollBy(0, 500));
 
+
+    await page.evaluate(() => window.scrollBy(0, 1000));
+    await new Promise(r => setTimeout(r, 1500));
 
     await page.waitForSelector('span.VU-ZEz', { timeout: 20000 });
     // await safeGoto(page, url);
@@ -538,7 +549,11 @@ app.get('/scrape', async (req, res) => {
     return res.status(400).json({ error: "No URL provided" });
   }
 
-  const url = decodeURIComponent(rawUrl); // ye encoding hata dega
+  const url = rawUrl; // ye encoding hata dega
+  if (url.includes('%2F')) { // agar encoded hai toh decode kar
+    url = decodeURIComponent(url);
+  }
+  // const url = decodeURIComponent(rawUrl); // ye encoding hata dega
   // console.log("Scraping URL:", decodedUrl);   
 
 
