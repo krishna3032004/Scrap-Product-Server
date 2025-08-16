@@ -434,13 +434,16 @@ app.post('/api/scrape-prices', async (req, res) => {
 
   try {
     browser = await getBrowser();
+    console.log("browser to ho gya")
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
     );
+    console.log("user agent ho gya")
     await page.setExtraHTTPHeaders({
       'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
     });
-    await page.setViewport({ width: 1366, height: 768 });
+    console.log("extra http header lg gye")
+    // await page.setViewport({ width: 1366, height: 768 });
 
 
 
