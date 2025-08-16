@@ -76,7 +76,7 @@ async function safeGotoforamazon(page, url, retries = 3) {
 async function blockExtraResourcesflipkart(page) {
   await page.setRequestInterception(true);
   page.on('request', (req) => {
-    const blocked = ['stylesheet', 'font', 'media'];
+    const blocked = ['stylesheet', 'font', 'media','image'];
     if (blocked.includes(req.resourceType())) {
       req.abort();
     } else { req.continue(); }
@@ -487,7 +487,7 @@ async function scrapeFlipkart(url) {
     console.log("safegoto pai ja rha")
     await safeGoto(page, url);
     console.log("safegoto ho gya")
-    await page.screenshot({ path: "debug.png", fullPage: true });
+    await page.screenshot({ path: "debug.png"});
     console.log("Screenshot captured: debug.png");
 
     // await new Promise(r => setTimeout(r, 5000));
