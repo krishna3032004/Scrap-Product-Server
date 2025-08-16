@@ -500,17 +500,30 @@ app.post('/api/scrape-prices', async (req, res) => {
           console.log(url)
           await safeGoto(page, url)
 
-          await page.evaluate(() => window.scrollBy(0, 1000));
-          await new Promise(r => setTimeout(r, 1500));
-          await page.waitForFunction(() => {
-            return document.querySelector(".Nx9bqj") ||
-              document.querySelector(".UOcV3E") ||
-              document.querySelector("._30jeq3");
-          }, { timeout: 30000 });
-          price = await page
-            .$eval(".Nx9bqj", el => el.innerText)
-            .catch(() => null);
-          console.log(price)
+          // await page.evaluate(() => window.scrollBy(0, 1000));
+          // await new Promise(r => setTimeout(r, 1500));
+          // await page.waitForFunction(() => {
+          //   return document.querySelector(".Nx9bqj") ||
+          //     document.querySelector(".UOcV3E") ||
+          //     document.querySelector("._30jeq3");
+          // }, { timeout: 30000 });
+          // price = await page
+          //   .$eval(".Nx9bqj", el => el.innerText)
+          //   .catch(() => null);
+          // console.log(price)
+          try {
+            await page.waitForFunction(() => {
+              const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
+              return el && el.innerText.match(/₹|\d/);
+            }, { timeout: 20000 });
+
+            price = await page.evaluate(() => {
+              const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
+              return el ? el.innerText : null;
+            });
+          } catch {
+            price = null;
+          }
         }
 
         if (price) {
