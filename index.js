@@ -606,18 +606,24 @@ async function scrapeProduct({ url }) {
 
 // API to scrape multiple products fast (parallel)
 app.post("/api/scrape-prices", async (req, res) => {
-  const { products } = req.body; // [{ productId, url }]
-  if (!products || !Array.isArray(products)) return res.status(400).json({ error: "products array required" });
-  console.log(products)
+   const { urls } = req.body;
+  console.log("run huakya")
+
+  if (!urls || !Array.isArray(urls)) {
+    return res.status(400).json({ error: "URLs array is required" });
+  }
+  // const { products } = req.body; // [{ productId, url }]
+  // if (!products || !Array.isArray(products)) return res.status(400).json({ error: "products array required" });
+  console.log(urls)
 
   try {
     // Parallel scraping (limit concurrency to 5–10 to avoid memory issues)
     const results = [];
     const concurrency = 5;
-    for (let i = 0; i < products.length; i += concurrency) {
+    for (let i = 0; i < urls.length; i += concurrency) {
       console.log(i)
       console.log(i+concurrency)
-      const batch = products.slice(i, i + concurrency);
+      const batch = urls.slice(i, i + concurrency);
       console.log(batch)
       const batchResults = await Promise.all(batch.map(scrapeProduct));
       console.log(batchResults)
