@@ -549,12 +549,24 @@ app.use(express.json());
 //     // if (browser) await page.close();
 //   }
 // });
+// Block heavy resources for faster scraping
+async function blockResources(page) {
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const blockedTypes = ["stylesheet", "font", "media", "websocket", "manifest"];
+    if (blockedTypes.includes(req.resourceType())) req.abort();
+    else req.continue();
+  });
+}
 
 
 // Fast scrape single Flipkart/Amazon product
 async function scrapeProduct({ url }) {
   const page = await (await getBrowser()).newPage();
+  console.log("chlo browser khul gya")
   await blockResources(page);
+  console.log("block ho gya")
+
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
   );
@@ -563,6 +575,7 @@ async function scrapeProduct({ url }) {
   await page.setExtraHTTPHeaders({
     'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
   });
+  console.log("goto pai pahcuh gye")
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(1000); // minimal wait
 
@@ -585,6 +598,7 @@ async function scrapeProduct({ url }) {
       price = price ? parseInt(price) : null;
     } catch {}
   }
+  console.log(price)
 
   await page.close();
   return {  url, price };
@@ -594,17 +608,23 @@ async function scrapeProduct({ url }) {
 app.post("/api/scrape-prices", async (req, res) => {
   const { products } = req.body; // [{ productId, url }]
   if (!products || !Array.isArray(products)) return res.status(400).json({ error: "products array required" });
+  console.log(products)
 
   try {
     // Parallel scraping (limit concurrency to 5–10 to avoid memory issues)
     const results = [];
     const concurrency = 5;
     for (let i = 0; i < products.length; i += concurrency) {
+      console.log(i)
+      console.log(i+concurrency)
       const batch = products.slice(i, i + concurrency);
+      console.log(batch)
       const batchResults = await Promise.all(batch.map(scrapeProduct));
+      console.log(batchResults)
       results.push(...batchResults);
     }
 
+    console.log(results)
     res.json({ results });
   } catch (err) {
     console.error(err);
