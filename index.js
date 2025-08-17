@@ -515,7 +515,7 @@ app.post('/api/scrape-prices', async (req, res) => {
             await page.waitForFunction(() => {
               const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
               return el && el.innerText.match(/₹|\d/);
-            }, { timeout: 20000 });
+            }, { timeout: 30000 });
 
             price = await page.evaluate(() => {
               const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
