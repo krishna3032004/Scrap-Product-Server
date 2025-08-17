@@ -543,29 +543,14 @@ app.post('/api/scrape-prices', async (req, res) => {
           try {
             // Wait until any price-like element appears with ₹
             await page.waitForFunction(() => {
-              const el = document.querySelector(
-                ".Nx9bqj, .UOcV3E, ._30jeq3, ._16Jk6d, [class*='price'], [class*='Price']"
-              );
-              return el && /₹\s*\d/.test(el.innerText);
+              const priceEl = document.querySelector("div[class*='Nx9bqj'], div[class*='_30jeq3'], div[class*='UOcV3E'], div[class*='price']");
+              return priceEl && priceEl.innerText.match(/₹|\d/);
             }, { timeout: 30000 });
 
-            // Extract price from multiple possible selectors
+            // Extract price
             price = await page.evaluate(() => {
-              const selectors = [
-                ".Nx9bqj",
-                ".UOcV3E",
-                "._30jeq3",
-                "._16Jk6d",
-                "[class*='price']",
-                "[class*='Price']"
-              ];
-              for (const sel of selectors) {
-                const el = document.querySelector(sel);
-                if (el && /₹\s*\d/.test(el.innerText)) {
-                  return el.innerText;
-                }
-              }
-              return null;
+              const el = document.querySelector("div[class*='Nx9bqj'], div[class*='_30jeq3'], div[class*='UOcV3E'], div[class*='price']");
+              return el ? el.innerText : null;
             });
           } catch (err) {
             console.log("Flipkart price not found:", err.message);
