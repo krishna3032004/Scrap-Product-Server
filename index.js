@@ -111,6 +111,34 @@ async function blockExtraResources(page) {
   });
 }
 
+async function blockExtraResourcesforall(page) {
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const type = req.resourceType();
+    const url = req.url();
+
+    const blockedTypes = ["stylesheet", "font", "media", "websocket", "manifest", "image"];
+    const blockedDomains = [
+      "google-analytics.com",
+      "adsense",
+      "doubleclick.net",
+      "amazon-adsystem.com"
+      // ❌ flipkart.net is removed, otherwise API/images break
+    ];
+
+    // Never block product API requests
+    if (type === "xhr" || type === "fetch") {
+      return req.continue();
+    }
+
+    if (blockedTypes.includes(type) || blockedDomains.some(d => url.includes(d))) {
+      return req.abort();
+    }
+
+    req.continue();
+  });
+}
+
 
 // async function blockExtraResources(page) {
 //   await page.setRequestInterception(true);
@@ -459,6 +487,7 @@ app.post('/api/scrape-prices', async (req, res) => {
       try {
 
         const page = await browser.newPage();
+        blockExtraResourcesforall(page)
         await page.setUserAgent(
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
         );
@@ -500,8 +529,8 @@ app.post('/api/scrape-prices', async (req, res) => {
           console.log(url)
           await safeGoto(page, url)
 
-          // await page.evaluate(() => window.scrollBy(0, 1000));
-          // await new Promise(r => setTimeout(r, 1500));
+          await page.evaluate(() => window.scrollBy(0, 400));
+          await new Promise(r => setTimeout(r, 1500));
           // await page.waitForFunction(() => {
           //   return document.querySelector(".Nx9bqj") ||
           //     document.querySelector(".UOcV3E") ||
@@ -512,18 +541,37 @@ app.post('/api/scrape-prices', async (req, res) => {
           //   .catch(() => null);
           // console.log(price)
           try {
+            // Wait until any price-like element appears with ₹
             await page.waitForFunction(() => {
-              const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
-              return el && el.innerText.match(/₹|\d/);
+              const el = document.querySelector(
+                ".Nx9bqj, .UOcV3E, ._30jeq3, ._16Jk6d, [class*='price'], [class*='Price']"
+              );
+              return el && /₹\s*\d/.test(el.innerText);
             }, { timeout: 30000 });
 
+            // Extract price from multiple possible selectors
             price = await page.evaluate(() => {
-              const el = document.querySelector(".Nx9bqj, .UOcV3E, ._30jeq3, [class*='price']");
-              return el ? el.innerText : null;
+              const selectors = [
+                ".Nx9bqj",
+                ".UOcV3E",
+                "._30jeq3",
+                "._16Jk6d",
+                "[class*='price']",
+                "[class*='Price']"
+              ];
+              for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                if (el && /₹\s*\d/.test(el.innerText)) {
+                  return el.innerText;
+                }
+              }
+              return null;
             });
-          } catch {
+          } catch (err) {
+            console.log("Flipkart price not found:", err.message);
             price = null;
           }
+          console.log(price)
         }
 
         if (price) {
