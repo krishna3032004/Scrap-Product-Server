@@ -543,13 +543,13 @@ app.post('/api/scrape-prices', async (req, res) => {
           try {
             // Wait until any price-like element appears with ₹
             await page.waitForFunction(() => {
-              const priceEl = document.querySelector("div[class*='Nx9bqj'], div[class*='_30jeq3'], div[class*='UOcV3E'], div[class*='price']");
+              const priceEl = document.querySelector("div[class*='hZ3P6w'], div[class*='bnqy13'], div[class*='QiMO5r'], div[class*='price']");
               return priceEl && priceEl.innerText.match(/₹|\d/);
             }, { timeout: 30000 });
 
             // Extract price
             price = await page.evaluate(() => {
-              const el = document.querySelector("div[class*='Nx9bqj'], div[class*='_30jeq3'], div[class*='UOcV3E'], div[class*='price']");
+              const el = document.querySelector("div[class*='hZ3P6w'], div[class*='bnqy13'], div[class*='QiMO5r'], div[class*='price']");
               return el ? el.innerText : null;
             });
           } catch (err) {
