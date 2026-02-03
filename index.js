@@ -366,20 +366,20 @@ async function scrapeFlipkart(url) {
     await page.evaluate(() => window.scrollBy(0, 1000));
     await new Promise(r => setTimeout(r, 1500));
 
-    await page.waitForSelector('span.VU-ZEz', { timeout: 20000 });
+    await page.waitForSelector('span.LMizgS', { timeout: 20000 });
     // await safeGoto(page, url);
     // Wait for Next.js data script
     // console.log("waitforselector pai ja rahe")
     // Try to extract JSON from __NEXT_DATA__ (Next.js embedded data)
     // Try extracting title from common places
     const result = await page.evaluate(() => {
-      const title = document.querySelector('span.VU-ZEz')?.innerText.trim() || null;
-      const image = document.querySelector('img.DByuf4')?.src || null;
-      const mrpText = document.querySelector('div.yRaY8j')?.innerText || '';
+      const title = document.querySelector('span.LMizgS')?.innerText.trim() || null;
+      const image = document.querySelector('img.UCc1lI')?.src || null;
+      const mrpText = document.querySelector('div.kRYCnD')?.innerText || '';
       const mrp = parseInt(mrpText.replace(/[^\d]/g, '')) || null;
-      const priceText = document.querySelector('div.Nx9bqj')?.innerText || '';
+      const priceText = document.querySelector('div.hZ3P6w')?.innerText || '';
       const price = parseInt(priceText.replace(/[^\d]/g, '')) || null;
-      const discountText = document.querySelector("div[class*='UkUFwK'] span")?.innerText || '';
+      const discountText = document.querySelector("div[class*='HQe8jr'] span")?.innerText || '';
       const discountMatch = discountText.match(/\d+/);
       const discount = discountMatch ? parseInt(discountMatch[0]) : null;
       return { title, image, mrp, price, discount };
