@@ -366,28 +366,92 @@ async function scrapeFlipkart(url) {
     await page.evaluate(() => window.scrollBy(0, 1000));
     await new Promise(r => setTimeout(r, 1500));
 
-    await page.waitForSelector('div.v1zwn21j', { timeout: 20000 });
-    // await safeGoto(page, url);
-    // Wait for Next.js data script
-    // console.log("waitforselector pai ja rahe")
-    // Try to extract JSON from __NEXT_DATA__ (Next.js embedded data)
-    // Try extracting title from common places
+    // await page.waitForSelector('div.v1zwn21j', { timeout: 20000 });
+    // // await safeGoto(page, url);
+    // // Wait for Next.js data script
+    // // console.log("waitforselector pai ja rahe")
+    // // Try to extract JSON from __NEXT_DATA__ (Next.js embedded data)
+    // // Try extracting title from common places
+    // const result = await page.evaluate(() => {
+    //   const title = document.querySelector('div.v1zwn21j')?.innerText.trim() || null;
+    //   const image = document.querySelector('.OfydJ4 img')?.src || null;
+    //   const mrpText = document.querySelector('div.v1zwn21k')?.innerText || '';
+    //   const mrp = parseInt(mrpText.replace(/[^\d]/g, '')) || null;
+    //   const priceText = document.querySelector('div.v1zwn21j')?.innerText || '';
+    //   const price = parseInt(priceText.replace(/[^\d]/g, '')) || null;
+    //   const discountText = document.querySelector('div.v1zwn21y')?.innerText || '';
+    //   const discountMatch = discountText.match(/\d+/);
+    //   const discount = discountMatch ? parseInt(discountMatch[0]) : null;
+    //   return { title, image, mrp, price, discount };
+    // });
+
+    // await page.close();
+
+    // // return null;
+    // return {
+    //   title: result.title,
+    //   image: result.image,
+    //   currentPrice: result.price,
+    //   mrp: result.mrp,
+    //   lowest: result.price,
+    //   highest: result.price,
+    //   average: result.price,
+    //   discount: result.discount,
+    //   rating: 4, time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+
+    //   platform: "flipkart", productLink: url,
+    //   amazonLink: "",
+    //   priceHistory: [{ price: result.price, date: new Date().toLocaleDateString('en-CA') },],
+
+    //   predictionText: "Prediction data not available yet.",
+    // };
+    await page.waitForFunction(() => {
+      return [...document.querySelectorAll("div")]
+        .some(el => el.innerText.trim().startsWith("₹"));
+    }, { timeout: 20000 });
+
     const result = await page.evaluate(() => {
-      const title = document.querySelector('div.v1zwn21j')?.innerText.trim() || null;
-      const image = document.querySelector('.OfydJ4 img')?.src || null;
-      const mrpText = document.querySelector('div.v1zwn21k')?.innerText || '';
-      const mrp = parseInt(mrpText.replace(/[^\d]/g, '')) || null;
-      const priceText = document.querySelector('div.v1zwn21j')?.innerText || '';
-      const price = parseInt(priceText.replace(/[^\d]/g, '')) || null;
-      const discountText = document.querySelector('div.v1zwn21y')?.innerText || '';
-      const discountMatch = discountText.match(/\d+/);
-      const discount = discountMatch ? parseInt(discountMatch[0]) : null;
-      return { title, image, mrp, price, discount };
+
+      const allDivs = [...document.querySelectorAll("div")];
+
+      // TITLE → product name (₹ nahi hota, GB/RAM pattern hota hai)
+      const titleEl = allDivs.find(el => {
+        const t = el.innerText.trim();
+        return t && !t.includes("₹") && /GB|RAM|Storage|Graphite|Black|Blue/i.test(t);
+      });
+
+      // PRICE → ₹ se start
+      const priceEl = allDivs.find(el =>
+        el.innerText.trim().startsWith("₹")
+      );
+
+      // MRP → line-through style
+      const mrpEl = allDivs.find(el =>
+        getComputedStyle(el).textDecoration.includes("line-through")
+      );
+
+      // DISCOUNT → % sign
+      const discountEl = allDivs.find(el =>
+        el.innerText.includes("%")
+      );
+
+      // IMAGE
+      const imageEl = document.querySelector("picture img");
+
+      const cleanNumber = (txt) =>
+        txt ? parseInt(txt.replace(/[^\d]/g, "")) : null;
+
+      return {
+        title: titleEl?.innerText.trim() || null,
+        image: imageEl?.src || null,
+        price: cleanNumber(priceEl?.innerText),
+        mrp: cleanNumber(mrpEl?.innerText),
+        discount: cleanNumber(discountEl?.innerText)
+      };
     });
 
     await page.close();
 
-    // return null;
     return {
       title: result.title,
       image: result.image,
@@ -397,14 +461,17 @@ async function scrapeFlipkart(url) {
       highest: result.price,
       average: result.price,
       discount: result.discount,
-      rating: 4, time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-
-      platform: "flipkart", productLink: url,
+      rating: 4,
+      time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      platform: "flipkart",
+      productLink: url,
       amazonLink: "",
-      priceHistory: [{ price: result.price, date: new Date().toLocaleDateString('en-CA') },],
-
+      priceHistory: [
+        { price: result.price, date: new Date().toLocaleDateString('en-CA') }
+      ],
       predictionText: "Prediction data not available yet.",
     };
+
   } catch (err) {
     if (page) await page.close();
     throw err;
@@ -542,16 +609,26 @@ app.post('/api/scrape-prices', async (req, res) => {
           // console.log(price)
           try {
             // Wait until any price-like element appears with ₹
+            // await page.waitForFunction(() => {
+            //   const priceEl = document.querySelector("div[class*='v1zwn21j'], div[class*='v1zwn20'], div[class*='_1psv1zeb9'], div[class*='price']");
+            //   return priceEl && priceEl.innerText.match(/₹|\d/);
+            // }, { timeout: 30000 });
             await page.waitForFunction(() => {
-              const priceEl = document.querySelector("div[class*='v1zwn21j'], div[class*='v1zwn20'], div[class*='_1psv1zeb9'], div[class*='price']");
-              return priceEl && priceEl.innerText.match(/₹|\d/);
+              return [...document.querySelectorAll("div")]
+                .some(el => el.innerText.trim().match(/^₹\s?\d/));
             }, { timeout: 30000 });
 
-            // Extract price
+            // // Extract price
+            // price = await page.evaluate(() => {
+            //   const el = document.querySelector("div[class*='v1zwn21j'], div[class*='v1zwn20'], div[class*='_1psv1zeb9'], div[class*='price']");
+            //   return el ? el.innerText : null;
+            // });
             price = await page.evaluate(() => {
-              const el = document.querySelector("div[class*='v1zwn21j'], div[class*='v1zwn20'], div[class*='_1psv1zeb9'], div[class*='price']");
-              return el ? el.innerText : null;
+              const el = [...document.querySelectorAll("div")]
+                .find(el => el.innerText.trim().match(/^₹\s?\d/));
+              return el ? el.innerText.trim() : null;
             });
+
           } catch (err) {
             console.log("Flipkart price not found:", err.message);
             price = null;
