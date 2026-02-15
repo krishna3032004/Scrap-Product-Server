@@ -410,43 +410,73 @@ async function scrapeFlipkart(url) {
         .some(el => el.innerText.trim().startsWith("₹"));
     }, { timeout: 20000 });
 
+    // const result = await page.evaluate(() => {
+
+    //   const allDivs = [...document.querySelectorAll("div")];
+
+    //   // TITLE → product name (₹ nahi hota, GB/RAM pattern hota hai)
+    //   const titleEl = allDivs.find(el => {
+    //     const t = el.innerText.trim();
+    //     return t && !t.includes("₹") && /GB|RAM|Storage|Graphite|Black|Blue/i.test(t);
+    //   });
+
+    //   // PRICE → ₹ se start
+    //   const priceEl = allDivs.find(el =>
+    //     el.innerText.trim().startsWith("₹")
+    //   );
+
+    //   // MRP → line-through style
+    //   const mrpEl = allDivs.find(el =>
+    //     getComputedStyle(el).textDecoration.includes("line-through")
+    //   );
+
+    //   // DISCOUNT → % sign
+    //   const discountEl = allDivs.find(el =>
+    //     el.innerText.includes("%")
+    //   );
+
+    //   // IMAGE
+    //   const imageEl = document.querySelector("picture img");
+
+    //   const cleanNumber = (txt) =>
+    //     txt ? parseInt(txt.replace(/[^\d]/g, "")) : null;
+
+    //   return {
+    //     title: titleEl?.innerText.trim() || null,
+    //     image: imageEl?.src || null,
+    //     price: cleanNumber(priceEl?.innerText),
+    //     mrp: cleanNumber(mrpEl?.innerText),
+    //     discount: cleanNumber(discountEl?.innerText)
+    //   };
+    // });
     const result = await page.evaluate(() => {
 
-      const allDivs = [...document.querySelectorAll("div")];
+      const clean = t => t ? parseInt(t.replace(/[^\d]/g, "")) : null;
 
-      // TITLE → product name (₹ nahi hota, GB/RAM pattern hota hai)
-      const titleEl = allDivs.find(el => {
-        const t = el.innerText.trim();
-        return t && !t.includes("₹") && /GB|RAM|Storage|Graphite|Black|Blue/i.test(t);
-      });
+      const priceEl = [...document.querySelectorAll("div")]
+        .filter(el => el.innerText.trim().startsWith("₹"))
+        .find(el => !el.closest(".SPxwSl"));
 
-      // PRICE → ₹ se start
-      const priceEl = allDivs.find(el =>
-        el.innerText.trim().startsWith("₹")
-      );
+      const mrpEl = [...document.querySelectorAll("div")]
+        .filter(el => getComputedStyle(el).textDecoration.includes("line-through"))
+        .find(el => !el.closest(".SPxwSl"));
 
-      // MRP → line-through style
-      const mrpEl = allDivs.find(el =>
-        getComputedStyle(el).textDecoration.includes("line-through")
-      );
+      const discountEl = [...document.querySelectorAll("div")]
+        .filter(el => el.innerText.includes("%"))
+        .find(el => !el.closest(".SPxwSl"));
 
-      // DISCOUNT → % sign
-      const discountEl = allDivs.find(el =>
-        el.innerText.includes("%")
-      );
+      const titleEl = [...document.querySelectorAll("div")]
+        .filter(el => el.innerText.length > 20 && !el.innerText.includes("₹"))
+        .find(el => !el.closest(".SPxwSl"));
 
-      // IMAGE
       const imageEl = document.querySelector("picture img");
-
-      const cleanNumber = (txt) =>
-        txt ? parseInt(txt.replace(/[^\d]/g, "")) : null;
 
       return {
         title: titleEl?.innerText.trim() || null,
         image: imageEl?.src || null,
-        price: cleanNumber(priceEl?.innerText),
-        mrp: cleanNumber(mrpEl?.innerText),
-        discount: cleanNumber(discountEl?.innerText)
+        price: clean(priceEl?.innerText),
+        mrp: clean(mrpEl?.innerText),
+        discount: clean(discountEl?.innerText)
       };
     });
 
@@ -613,20 +643,42 @@ app.post('/api/scrape-prices', async (req, res) => {
             //   const priceEl = document.querySelector("div[class*='v1zwn21j'], div[class*='v1zwn20'], div[class*='_1psv1zeb9'], div[class*='price']");
             //   return priceEl && priceEl.innerText.match(/₹|\d/);
             // }, { timeout: 30000 });
-            await page.waitForFunction(() => {
-              return [...document.querySelectorAll("div")]
-                .some(el => el.innerText.trim().match(/^₹\s?\d/));
-            }, { timeout: 30000 });
+            // await page.waitForFunction(() => {
+            //   return [...document.querySelectorAll("div")]
+            //     .some(el => el.innerText.trim().match(/^₹\s?\d/));
+            // }, { timeout: 30000 });
 
             // // Extract price
             // price = await page.evaluate(() => {
             //   const el = document.querySelector("div[class*='v1zwn21j'], div[class*='v1zwn20'], div[class*='_1psv1zeb9'], div[class*='price']");
             //   return el ? el.innerText : null;
             // });
+            // price = await page.evaluate(() => {
+            //   const el = [...document.querySelectorAll("div")]
+            //     .find(el => el.innerText.trim().match(/^₹\s?\d/));
+            //   return el ? el.innerText.trim() : null;
+            // });
+            await page.waitForFunction(() => {
+              return [...document.querySelectorAll("div")]
+                .some(el => el.innerText.trim().match(/^₹\s?\d/));
+            }, { timeout: 30000 });
+
             price = await page.evaluate(() => {
-              const el = [...document.querySelectorAll("div")]
-                .find(el => el.innerText.trim().match(/^₹\s?\d/));
-              return el ? el.innerText.trim() : null;
+
+              const priceCandidates = [...document.querySelectorAll("div")]
+                .filter(el => el.innerText.trim().match(/^₹\s?\d/));
+
+              for (const el of priceCandidates) {
+
+                // agar ancestor me SPxwSl class mila → ad hai → skip
+                const isInsideAd = el.closest(".SPxwSl");
+
+                if (!isInsideAd) {
+                  return el.innerText.trim();
+                }
+              }
+
+              return null;
             });
 
           } catch (err) {
